@@ -3,11 +3,15 @@
 
 Consider:
 * a sistem with two fragments, we want to compute the interaction
-* the wavefunction of the fragmentA, a
-* the wavefunction of the fragmentB, b 
+* the wave function / basis set of the fragmentA, a
+* the wave function / basis set of the fragmentB, b 
 * the geometry of the fragmentA, A
 * the geometry of the fragmentB, B
 * by convention, A is the framework (or surface, bigger molecule) and B is the adsorbate
+* Aa and Aab, means the wfn of fragmentA with the basis set of A (a), or both A and B (ab)
+* the non-counterpoise-corrected interaction energy is: E=E(ABab)-E(Aa)-E(Bb)
+* the counterpoise-corrected interaction energy is: E=E(ABab)-E(Aab)-E(Bab)
+* E=E(Aab)-E(Aa) is the difference in the energy due to a better minimization of the wave function of the fragment A when the basis set of B is added. This value should be negative. 
  
 ### Examples:
 #### 1) Print the formatted wavefunction:
@@ -34,8 +38,13 @@ TODO: use the `-check` keyword to check if the number of atoms are consistent in
 
 #### 4) TODO: Prepare the inputs for a Counterpoise Corrected calculation (recycling the wavefunctions)
 ```
-wfntools cp -AB bothfragments_label.xyz -o outputname
+wfntools cp -ab bothfragments.wfn -AB bothfragments_label.xyz -o outputname
 ```
+* Prints outputname_A.xyz (no label), outputname_Aab.wfn and outputname_Aab.kind
+* Prints outputname_B.xyz (no label), outputname_Bab.wfn and outputname_Bab.kind
+and, if `-sbs` option is used:
+* Prints outputname_Aa.wfn and outputname_Aa.kind
+* Prints outputname_Bb.wfn and outputname_Bb.kind
 
 ### Utilities:
 
