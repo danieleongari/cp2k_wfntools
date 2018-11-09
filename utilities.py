@@ -34,6 +34,18 @@ class wfn:
             self.occup.append([0 for i in range(self.nmo[ispin])])
             self.coeff.append([[0 for j in range(self.nao_tot)] for i in range(self.nmo[ispin])])
 
+class mol:
+    """ Molecule object, without the unit cell """
+    def __init__(self,
+                 natom = None):
+        self.natom = natom                                                      # number of atoms
+        self.atom_id = [None for i in range(self.natom)]                        # counter id
+        self.atom_symbol = [None for i in range(self.natom)]                    # atomic symbol
+        self.atom_xyz = [[None for j in range(3)] for i in range(self.natom)]   # cartesian coordinates
+    def get_types(self):
+        self.ntype = len(set(self.atom_symbol))
+        self.type_symbol = list(set(self.atom_symbol))
+
 
 def read_wfn_file(wfn_file):
     """ Parser for the .wfn file, that returns the wfn object """
@@ -211,3 +223,62 @@ def makeopenshell(v):
             w.occup[ispin]=[x/2. for x in v.occup[0]]
             w.coeff[ispin]=v.coeff[0]
         return w
+
+def read_xyz_file(xyz_file): #for the moment A and B are separate
+    inpfile = open(xyz_file,'r')
+    data = inpfile.readline().split()
+    natom = int(data[0])
+    M = mol(natom)
+    junk = inpfile.readline()
+    for i in range(natom):
+        data = inpfile.readline().split()
+        M.atom_id[i]=i
+        if data[0][-2:]=='_A' or data[0][-2:]=='_B':
+            M.atom_symbol[i]=data[0][:-2]
+        else:
+            M.atom_symbol[i]=data[0]
+        M.atom_xyz[i][0]=float(data[1])
+        M.atom_xyz[i][1]=float(data[2])
+        M.atom_xyz[i][2]=float(data[3])
+    inpfile.close()
+    M.get_types()
+    return M
+
+def write_xyz_file(xyz_file,A,B,label):
+    outfile = open(xyz_file,'w')
+    print("%d" %(A.natom+B.natom),file=outfile)
+    print("Printed using cp2k_wfntool",file=outfile)
+    for i in range(A.natom):
+        if label: atom_label=A.atom_symbol[i]+'_A'
+        else: atom_label=A.atom_symbol[i]
+        print("%s %10.5f %10.5f %10.5f" %(atom_label,
+                                          A.atom_xyz[i][0],
+                                          A.atom_xyz[i][1],
+                                          A.atom_xyz[i][2]), file=outfile)
+    for i in range(B.natom):
+        if label: atom_label=B.atom_symbol[i]+'_B'
+        else: atom_label=B.atom_symbol[i]
+        print("%s %10.5f %10.5f %10.5f" %(atom_label,
+                                          B.atom_xyz[i][0],
+                                          B.atom_xyz[i][1],
+                                          B.atom_xyz[i][2]), file=outfile)
+    outfile.close()
+    return
+
+def write_kind_file(kind_file,A,B,A_is_ghost,B_is_ghost,bs,pot):
+    outfile = open(kind_file,'w')
+    for i in range(A.ntype):
+            print("    &KIND %s" %(A.type_symbol[i]+'_A'), file=outfile)
+            print("      ELEMENT %s" %(A.type_symbol[i]), file=outfile)
+            print("      BASIS_SET %s" %bs, file=outfile)
+            if A_is_ghost: print("      GHOST", file=outfile)
+            else:          print("      POTENTIAL %s" %pot, file=outfile)
+    for i in range(B.ntype):
+            print("    &KIND %s" %(B.type_symbol[i]+'_B'), file=outfile)
+            print("      ELEMENT %s" %(B.type_symbol[i]), file=outfile)
+            print("      BASIS_SET %s" %bs, file=outfile)
+            if B_is_ghost: print("      GHOST", file=outfile)
+            else:          print("      POTENTIAL %s" %pot, file=outfile)
+            print("    &END KIND", file=outfile)
+    outfile.close()
+    return

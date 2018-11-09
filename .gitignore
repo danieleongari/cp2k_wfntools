@@ -1,3 +1,4 @@
 *.pyc
 *.wfn
 *.fwfn
+test/output/*
