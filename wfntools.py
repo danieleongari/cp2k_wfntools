@@ -3,8 +3,11 @@
 import sys
 import os
 from atomic_data import atomic_symbols, atomic_names
-from utilities import wfn, read_wfn_file, write_wfn_file, write_fwfn_file, combine_wfn
-from utilities import mol, read_xyz_file, write_xyz_file, write_kind_file
+from utilities import wfn, mol
+from utilities import read_wfn_file, combine_wfn
+from utilities import write_fwfn_file, write_wfn_file
+from utilities import read_xyz_file, read_xyzlabel_file
+from utilities import write_xyz_file, write_kind_file
 import argparse
 from argparse import RawTextHelpFormatter #needed to go next line in the help text
 
@@ -72,23 +75,29 @@ parser.add_argument("-sbs","--singlebasisset",
                       default=False,
                       help="In the 'combine' calculation, print also single basis set files for A and B")
 
-parser.add_argument("-na","--numberatomsa",
+parser.add_argument("-nA","--numberatomsa",
                       type=int,
                       dest="na",
                       default=None,
                       help="Number of atoms of fragment A")
 
-parser.add_argument("-nb","--numberatomsb",
+parser.add_argument("-nB","--numberatomsb",
                       type=int,
                       dest="nb",
                       default=None,
                       help="Number of atoms of fragment B")
 
-parser.add_argument("-swapab","--swapAwithB",
+parser.add_argument("-swapAB","--swapAwithB",
                       action="store_true",
                       dest="swapab",
                       default=False,
                       help="In the .xyz file read B first and A later")
+
+parser.add_argument("-sbs","--singlebasisset",
+                      action="store_true",
+                      dest="sbs",
+                      default=False,
+                      help="In a CounterPoise calculation, print also Aa and Bb")
 
 parser.add_argument("-f","--printformatted",
                       action="store_true",
@@ -126,11 +135,46 @@ if args.function=='combine':
         write_xyz_file(args.outfilename+'_label.xyz',A,B,label=True)
         write_kind_file(args.outfilename+'.kind',A,B,False,False,args.bs,args.pot)
 
+if args.function=='cp':
+    if args.geoab == None or not os.path.isfile(args.geoab):
+        print("WARNING: -AB geometry not provided or not existing! EXIT")
+        sys.exit()
+    A, B, na, nb = read_xyzlabel_file(args.geoab)
+    if args.wfnab == None or not os.path.isfile(args.wfnab):
+        print("WARNING: -ab wave function not provided or not existing! EXIT")
+        sys.exit()
+    ab = read_wfn_file(args.wfnab)
+    a, b = split_wfn(ab,na)
+    a_clean = clean_wfn(a)
+    b_clean = clean_wfn(b)
+
+    # Print Aab
+    a_ab = combine_wfn(a,b_clean)
+    write_xyz_file(args.outfilename+'_Aab.xyz',A,B,label=True)
+    write_kind_file(args.outfilename+'_Aab.kind',A,B,False,True,args.bs,args.pot)
+    write_wfn_file(a_ab,args.outfilename+'_Aab.wfn')
+    # Print Bab
+    b_ab = combine_wfn(a_clean,b)
+    write_xyz_file(args.outfilename+'_Bab.xyz',A,B,label=True)
+    write_kind_file(args.outfilename+'_Bab.kind',A,B,True,False,args.bs,args.pot)
+    write_wfn_file(b_ab,args.outfilename+'_Bab.wfn')
+    if sbs:
+        # Initialize an empty fragment
+        X=mol(0)
+        X.get_types()
+        # Print Aa
+        write_xyz_file(args.outfilename+'_Aa.xyz',A,X,label=True)
+        write_kind_file(args.outfilename+'_Aa.kind',A,X,True,False,args.bs,args.pot)
+        write_wfn_file(a,args.outfilename+'_Aa.wfn')
+        # Print Bb
+        write_xyz_file(args.outfilename+'_Bb.xyz',A,X,label=True)
+        write_kind_file(args.outfilename+'_Bb.kind',A,X,True,False,args.bs,args.pot)
+        write_wfn_file(b,args.outfilename+'_Bb.wfn')
+
 if args.function=='labelAB':
     # Read the number of atoms an check if everything makes sense: na+nb=nab
     inpfile = open(args.geoab,'r')
-    data = inpfile.readline()
-    nab = int(data[0])
+    nab = int(inpfile.readline().split[0])
     if args.na== None and args.nb == None:
         print("WARNING: number of atoms for A (or B) not provided! EXIT")
         sys.exit()

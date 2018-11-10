@@ -1,3 +1,5 @@
+import sys
+import os
 import scipy.io
 import numpy as np
 
@@ -88,6 +90,15 @@ def read_wfn_file(wfn_file):
                 w.coeff[ispin][imo][i]=val
     inpfile.close()
     return w
+
+def clean_wfn(w):
+    ispin = w.nspin
+    for ispin in range(nspin):
+        w.initialize_lists(ispin) #clear w.eigen[ispin] w.occup[ispin] e w.coeff[ispin]
+    return w
+
+def split_wfn(ab, na):
+    return a, b
 
 def write_wfn_file(wfn_object,wfn_file):
     """ Print a wfn object as a binary fortran file """
@@ -243,6 +254,49 @@ def read_xyz_file(xyz_file): #for the moment A and B are separate
     inpfile.close()
     M.get_types()
     return M
+
+def read_xyzlabel_file(xyz_file):
+    inpfile = open(xyz_file,'r')
+    nab = int(inpfile.readline().split()[0])
+    junk = inpfile.readline()
+    # I assume the first fragment is A (TODO: make possible to start with B)
+    na=0
+    nb=0
+    for f in range(nab):
+        atom_label = inpfile.readline().split()[0][-2:]
+        if atom_label == "_A":
+            na+=1
+        elif  atom_label == "_B":
+            nb+=1
+        else:
+            print("WARNING: AB.xyz does not contain labels. Use labelAB first! EXIT")
+            sys.exit()
+    if not nab==(na+nb):
+        print("WARNING: the count of A and B atoms in AB.xyz is weird! EXIT")
+        sys.exit()
+    inpfile.close() #TODO: use rewind
+    inpfile = open(xyz_file,'r')
+    junk = inpfile.readline()
+    junk = inpfile.readline()
+    outfileA = open('tmp_A.xyz','w')
+    outfileB = open('tmp_B.xyz','w')
+    print(na, file=outfileA)
+    print(nb, file=outfileB)
+    print('Fragment A', file=outfileA)
+    print('Fragment B', file=outfileB)
+    for i in range(na):
+        line = inpfile.readline()
+        print(line, end='', file=outfileA)
+    for i in range(nb):
+        line = inpfile.readline()
+        print(line, end='', file=outfileB)
+    outfileA.close()
+    outfileB.close()
+    A=read_xyz_file('tmp_A.xyz')
+    B=read_xyz_file('tmp_B.xyz')
+    os.remove('tmp_A.xyz')
+    os.remove('tmp_B.xyz')
+    return A, B, na, nb
 
 def write_xyz_file(xyz_file,A,B,label):
     outfile = open(xyz_file,'w')
