@@ -52,7 +52,7 @@ class mol:
 def read_wfn_file(wfn_file):
     """ Parser for the .wfn file, that returns the wfn object """
 
-    inpfile = scipy.io.FortranFile(wfn_file, 'r')
+    inpfile = scipy.io.FortranFile(wfn_file, "r")
 
     natom, nspin, nao_tot, nset_max, nshell_max = inpfile.read_ints()
     w=wfn(natom,nspin,nao_tot,nset_max,nshell_max)
@@ -92,6 +92,7 @@ def read_wfn_file(wfn_file):
     return w
 
 def clean_wfn(w):
+    """ Given a wfn, set to zero wfn.eigen, wfn.occup and wfn.coeff """
     ispin = w.nspin
     for ispin in range(nspin):
         w.initialize_lists(ispin) #clear w.eigen[ispin] w.occup[ispin] e w.coeff[ispin]
@@ -102,7 +103,7 @@ def split_wfn(ab, na):
 
 def write_wfn_file(wfn_object,wfn_file):
     """ Print a wfn object as a binary fortran file """
-    outfile = scipy.io.FortranFile(wfn_file, 'w')
+    outfile = scipy.io.FortranFile(wfn_file, "w")
     w=wfn_object
     outfile.write_record(np.array([w.natom, w.nspin, w.nao_tot, w.nset_max, w.nshell_max], dtype=np.int32))
     outfile.write_record(np.array(w.nset, dtype=np.int32))
@@ -110,34 +111,34 @@ def write_wfn_file(wfn_object,wfn_file):
     outfile.write_record(np.array(np.concatenate(w.nao), dtype=np.int32))
     for ispin in range(w.nspin):
         outfile.write_record(np.array([w.nmo[ispin], w.nocc[ispin], w.nvirt[ispin], w.nel[ispin]], dtype=np.int32))
-        outfile.write_record(np.array(np.concatenate([w.eigen[ispin],w.occup[ispin]]), dtype=np.dtype('f8')))
+        outfile.write_record(np.array(np.concatenate([w.eigen[ispin],w.occup[ispin]]), dtype=np.dtype("f8")))
         for imo in range(w.nmo[ispin]):
-            outfile.write_record(np.array(w.coeff[ispin][imo], dtype=np.dtype('f8')))
+            outfile.write_record(np.array(w.coeff[ispin][imo], dtype=np.dtype("f8")))
     outfile.close()
     return
 
 def write_fwfn_file(wfn_object,fwfn_file):
     """ Print a wfn object as a formatted text file """
-    outfile = open(fwfn_file, 'w')
+    outfile = open(fwfn_file, "w")
     w=wfn_object
     print("Number of atoms: %d" %w.natom, file=outfile)
     print("Number of spins: %d" %w.nspin, file=outfile)
     print("Total number of atomic orbitals (AOs): %d" %w.nao_tot, file=outfile)
     print("Maximum number of sets: %d" %w.nset_max, file=outfile)
     print("Maximum number of shells: %d" %w.nshell_max, file=outfile)
-    print("Number of sets for each atom: [", end='', file=outfile)
+    print("Number of sets for each atom: [", end="", file=outfile)
     for val in w.nset:
-        print(" %d" %val, end='',file=outfile)
+        print(" %d" %val, end="",file=outfile)
     print(" ]",file=outfile)
-    print("Number of shells for each atom: [", end='', file=outfile)
+    print("Number of shells for each atom: [", end="", file=outfile)
     for val in w.nshell:
-        print(" %d" %val, end='',file=outfile)
+        print(" %d" %val, end="",file=outfile)
     print(" ]",file=outfile)
     print("Number of atomic orbitals for each shell for each atom:", file=outfile)
     for i, list in enumerate(w.nao):
-        print("atom %d:\t[" %i, end='', file=outfile)
+        print("atom %d:\t[" %i, end="", file=outfile)
         for j in list:
-            print(" %d" %j, end='',file=outfile)
+            print(" %d" %j, end="",file=outfile)
         print(" ]",file=outfile)
 
     for ispin in range(w.nspin):
@@ -147,19 +148,19 @@ def write_fwfn_file(wfn_object,fwfn_file):
         print("Number of occupied MOs: %d" %w.nocc[ispin], file=outfile)
         print("Number of virtual MOs: %d" %w.nvirt[ispin], file=outfile)
         print("Number of electrons: %d" %w.nel[ispin], file=outfile)
-        print("Eigenvalue for each MO: [", end='', file=outfile)
+        print("Eigenvalue for each MO: [", end="", file=outfile)
         for val in w.eigen[ispin]:
-            print(" %.3f" %val, end='', file=outfile)
+            print(" %.3f" %val, end="", file=outfile)
         print(" ]",file=outfile)
-        print("Electron occupancy for each MO: [", end='', file=outfile)
+        print("Electron occupancy for each MO: [", end="", file=outfile)
         for val in w.occup[ispin]:
-            print(" %.3f" %val, end='', file=outfile)
+            print(" %.3f" %val, end="", file=outfile)
         print(" ]",file=outfile)
         print("Coefficients for the MO/AO matrix:", file=outfile)
         for i, list in enumerate(w.coeff[ispin]):
-            print("MO %d:\t[" %i, end='', file=outfile)
+            print("MO %d:\t[" %i, end="", file=outfile)
             for j in list:
-                print(" %+.3f" %j, end='', file=outfile)
+                print(" %+.3f" %j, end="", file=outfile)
             print(" ]",file=outfile)
     outfile.close()
     return
@@ -235,8 +236,9 @@ def makeopenshell(v):
             w.coeff[ispin]=v.coeff[0]
         return w
 
-def read_xyz_file(xyz_file): #for the moment A and B are separate
-    inpfile = open(xyz_file,'r')
+def read_xyz_file(xyz_file):
+    """ Read an .xyz file, containing only one fragment. Skip labels if present """
+    inpfile = open(xyz_file,"r")
     data = inpfile.readline().split()
     natom = int(data[0])
     M = mol(natom)
@@ -244,7 +246,7 @@ def read_xyz_file(xyz_file): #for the moment A and B are separate
     for i in range(natom):
         data = inpfile.readline().split()
         M.atom_id[i]=i
-        if data[0][-2:]=='_A' or data[0][-2:]=='_B':
+        if data[0][-2:]=="_A" or data[0][-2:]=="_B":
             M.atom_symbol[i]=data[0][:-2]
         else:
             M.atom_symbol[i]=data[0]
@@ -256,10 +258,11 @@ def read_xyz_file(xyz_file): #for the moment A and B are separate
     return M
 
 def read_xyzlabel_file(xyz_file):
-    inpfile = open(xyz_file,'r')
+    """ Read an .xyz labelled file containing both A and B fragments """
+    """ NB: it does not matter the order of A and B in the file """
+    inpfile = open(xyz_file,"r")
     nab = int(inpfile.readline().split()[0])
     junk = inpfile.readline()
-    # I assume the first fragment is A (TODO: make possible to start with B)
     na=0
     nb=0
     for f in range(nab):
@@ -275,42 +278,42 @@ def read_xyzlabel_file(xyz_file):
         print("WARNING: the count of A and B atoms in AB.xyz is weird! EXIT")
         sys.exit()
     inpfile.close() #TODO: use rewind
-    inpfile = open(xyz_file,'r')
+    inpfile = open(xyz_file,"r")
     junk = inpfile.readline()
     junk = inpfile.readline()
-    outfileA = open('tmp_A.xyz','w')
-    outfileB = open('tmp_B.xyz','w')
+    outfileA = open("tmp_A.xyz","w")
+    outfileB = open("tmp_B.xyz","w")
     print(na, file=outfileA)
     print(nb, file=outfileB)
-    print('Fragment A', file=outfileA)
-    print('Fragment B', file=outfileB)
+    print("Fragment A", file=outfileA)
+    print("Fragment B", file=outfileB)
     for i in range(na):
         line = inpfile.readline()
-        print(line, end='', file=outfileA)
+        print(line, end="", file=outfileA)
     for i in range(nb):
         line = inpfile.readline()
-        print(line, end='', file=outfileB)
+        print(line, end="", file=outfileB)
     outfileA.close()
     outfileB.close()
-    A=read_xyz_file('tmp_A.xyz')
-    B=read_xyz_file('tmp_B.xyz')
-    os.remove('tmp_A.xyz')
-    os.remove('tmp_B.xyz')
+    A=read_xyz_file("tmp_A.xyz")
+    B=read_xyz_file("tmp_B.xyz")
+    os.remove("tmp_A.xyz")
+    os.remove("tmp_B.xyz")
     return A, B, na, nb
 
 def write_xyz_file(xyz_file,A,B,label):
-    outfile = open(xyz_file,'w')
+    outfile = open(xyz_file,"w")
     print("%d" %(A.natom+B.natom),file=outfile)
     print("Printed using cp2k_wfntool",file=outfile)
     for i in range(A.natom):
-        if label: atom_label=A.atom_symbol[i]+'_A'
+        if label: atom_label=A.atom_symbol[i]+"_A"
         else: atom_label=A.atom_symbol[i]
         print("%s %10.5f %10.5f %10.5f" %(atom_label,
                                           A.atom_xyz[i][0],
                                           A.atom_xyz[i][1],
                                           A.atom_xyz[i][2]), file=outfile)
     for i in range(B.natom):
-        if label: atom_label=B.atom_symbol[i]+'_B'
+        if label: atom_label=B.atom_symbol[i]+"_B"
         else: atom_label=B.atom_symbol[i]
         print("%s %10.5f %10.5f %10.5f" %(atom_label,
                                           B.atom_xyz[i][0],
@@ -320,15 +323,15 @@ def write_xyz_file(xyz_file,A,B,label):
     return
 
 def write_kind_file(kind_file,A,B,A_is_ghost,B_is_ghost,bs,pot):
-    outfile = open(kind_file,'w')
+    outfile = open(kind_file,"w")
     for i in range(A.ntype):
-            print("    &KIND %s" %(A.type_symbol[i]+'_A'), file=outfile)
+            print("    &KIND %s" %(A.type_symbol[i]+"_A"), file=outfile)
             print("      ELEMENT %s" %(A.type_symbol[i]), file=outfile)
             print("      BASIS_SET %s" %bs, file=outfile)
             if A_is_ghost: print("      GHOST", file=outfile)
             else:          print("      POTENTIAL %s" %pot, file=outfile)
     for i in range(B.ntype):
-            print("    &KIND %s" %(B.type_symbol[i]+'_B'), file=outfile)
+            print("    &KIND %s" %(B.type_symbol[i]+"_B"), file=outfile)
             print("      ELEMENT %s" %(B.type_symbol[i]), file=outfile)
             print("      BASIS_SET %s" %bs, file=outfile)
             if B_is_ghost: print("      GHOST", file=outfile)

@@ -64,3 +64,9 @@ or
 wfntools labelAB -AB both_fragments.xyz -nB 3 -o outputname
 ```
  Print a new `outputname_label.xyz` file where A and B are labelled according to the number of `-nA` atoms in A (or specifying `-nB`). Use the `-swapAB` option to read first B and then A in the .xyz file.
+
+#### 7) Swap A and B labels in the AB geometry file:
+```
+wfntools swaplAB -AB both_fragments.xyz -o outputname
+```
+Print a new `outputname_label.xyz` file where A and B are labels are swapped.

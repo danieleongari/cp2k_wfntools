@@ -11,11 +11,19 @@ from utilities import write_xyz_file, write_kind_file
 import argparse
 from argparse import RawTextHelpFormatter #needed to go next line in the help text
 
-parser = argparse.ArgumentParser(description="Program to parse and combine CP2K's .wfn wavefunction files", formatter_class=RawTextHelpFormatter)
+parser = argparse.ArgumentParser(description="Program to parse and combine CP2K's .wfn wavefunction files",
+                                 formatter_class=RawTextHelpFormatter)
 
 parser.add_argument("function",
-                      choices=['parse','combine','cp','makeAB','labelAB'],
-                      help='Function to execute')
+                      choices=["parse","combine","cp","makeAB","labelAB","swapAB","check"],
+                      help="Choose the function to execute.\n" +
+                            "parse: print formatted wfn\n" +
+                            "combine: combine A and B geometries and wfn\n" +
+                            "cp: print files for a CounterPoise correction calculation\n" +
+                            "makeAB: insert B in A, in a random position\n" +
+                            "labelAB: given unlabelled AB.xyz, make _A and _B labels\n" +
+                            "swapAB: given labelled AB.xyz, swap _A with _B\n" +
+                            "check: check that a given geometry and wfn have the same atoms and types")
 
 parser.add_argument("-a","--wfna",
                       type=str,
@@ -69,12 +77,6 @@ parser.add_argument("-pot","--potential",
                       default="GTH-PBE",
                       help="CP2K pseudopotential choice for the .kind file")
 
-parser.add_argument("-sbs","--singlebasisset",
-                      action="store_true",
-                      dest="sbs",
-                      default=False,
-                      help="In the 'combine' calculation, print also single basis set files for A and B")
-
 parser.add_argument("-nA","--numberatomsa",
                       type=int,
                       dest="na",
@@ -107,35 +109,35 @@ parser.add_argument("-f","--printformatted",
 
 args = parser.parse_args()
 
-if args.function=='parse':
-    print('Converting %s binary file in %s.fwfn formatted file.' %(args.wfna,args.outfilename))
+if args.function=="parse":
+    print("Converting %s binary file in %s.fwfn formatted file." %(args.wfna,args.outfilename))
     a=read_wfn_file(args.wfna)
-    write_fwfn_file(a,args.outfilename+'.fwfn')
+    write_fwfn_file(a,args.outfilename+".fwfn")
 
-if args.function=='combine':
+if args.function=="combine":
     #if wfargs.na and wfnb are provided, combine the two wfn and print fwfn if asked
     if (args.wfargs.na == None or args.wfnb == None):
-        print('WARNING: wavefunctions for A or B were not provided!')
+        print("WARNING: wavefunctions for A or B were not provided!")
     if (args.wfargs.na != None and args.wfnb != None):
-        print('Converting wfns %s and %s into %s.wfn' %(args.wfna,args.wfnb,args.outfilename))
+        print("Converting wfns %s and %s into %s.wfn" %(args.wfna,args.wfnb,args.outfilename))
         a=read_wfn_file(args.wfna)
         b=read_wfn_file(args.wfnb)
         ab=combine_wfn(a,b)
-        write_wfn_file(ab,args.outfilename+'.wfn')
+        write_wfn_file(ab,args.outfilename+".wfn")
         if args.printformatted:
-            write_fwfn_file(ab,args.outfilename+'.fwfn')
+            write_fwfn_file(ab,args.outfilename+".fwfn")
     #if geoa and geob are provided, combine the two geometries and make the kind file
     if (args.geoa == None or args.geob == None):
-        print('WARNING: geometries for A or B were not provided!')
+        print("WARNING: geometries for A or B were not provided!")
     if (args.geoa != None and args.geob != None):
-        print('Converting geometries %s and %s into %s_label.xyz' %(args.geoa,args.geob,args.outfilename))
+        print("Converting geometries %s and %s into %s_label.xyz" %(args.geoa,args.geob,args.outfilename))
         A=read_xyz_file(args.geoa)
         B=read_xyz_file(args.geob)
-        write_xyz_file(args.outfilename+'_nolabel.xyz',A,B,label=False)
-        write_xyz_file(args.outfilename+'_label.xyz',A,B,label=True)
-        write_kind_file(args.outfilename+'.kind',A,B,False,False,args.bs,args.pot)
+        write_xyz_file(args.outfilename+"_nolabel.xyz",A,B,label=False)
+        write_xyz_file(args.outfilename+"_label.xyz",A,B,label=True)
+        write_kind_file(args.outfilename+".kind",A,B,False,False,args.bs,args.pot)
 
-if args.function=='cp':
+if args.function=="cp":
     if args.geoab == None or not os.path.isfile(args.geoab):
         print("WARNING: -AB geometry not provided or not existing! EXIT")
         sys.exit()
@@ -150,30 +152,33 @@ if args.function=='cp':
 
     # Print Aab
     a_ab = combine_wfn(a,b_clean)
-    write_xyz_file(args.outfilename+'_Aab.xyz',A,B,label=True)
-    write_kind_file(args.outfilename+'_Aab.kind',A,B,False,True,args.bs,args.pot)
-    write_wfn_file(a_ab,args.outfilename+'_Aab.wfn')
+    write_xyz_file(args.outfilename+"_Aab.xyz",A,B,label=True)
+    write_kind_file(args.outfilename+"_Aab.kind",A,B,False,True,args.bs,args.pot)
+    write_wfn_file(a_ab,args.outfilename+"_Aab.wfn")
     # Print Bab
     b_ab = combine_wfn(a_clean,b)
-    write_xyz_file(args.outfilename+'_Bab.xyz',A,B,label=True)
-    write_kind_file(args.outfilename+'_Bab.kind',A,B,True,False,args.bs,args.pot)
-    write_wfn_file(b_ab,args.outfilename+'_Bab.wfn')
+    write_xyz_file(args.outfilename+"_Bab.xyz",A,B,label=True)
+    write_kind_file(args.outfilename+"_Bab.kind",A,B,True,False,args.bs,args.pot)
+    write_wfn_file(b_ab,args.outfilename+"_Bab.wfn")
     if sbs:
         # Initialize an empty fragment
         X=mol(0)
         X.get_types()
         # Print Aa
-        write_xyz_file(args.outfilename+'_Aa.xyz',A,X,label=True)
-        write_kind_file(args.outfilename+'_Aa.kind',A,X,True,False,args.bs,args.pot)
-        write_wfn_file(a,args.outfilename+'_Aa.wfn')
+        write_xyz_file(args.outfilename+"_Aa.xyz",A,X,label=True)
+        write_kind_file(args.outfilename+"_Aa.kind",A,X,True,False,args.bs,args.pot)
+        write_wfn_file(a,args.outfilename+"_Aa.wfn")
         # Print Bb
-        write_xyz_file(args.outfilename+'_Bb.xyz',A,X,label=True)
-        write_kind_file(args.outfilename+'_Bb.kind',A,X,True,False,args.bs,args.pot)
-        write_wfn_file(b,args.outfilename+'_Bb.wfn')
+        write_xyz_file(args.outfilename+"_Bb.xyz",A,X,label=True)
+        write_kind_file(args.outfilename+"_Bb.kind",A,X,True,False,args.bs,args.pot)
+        write_wfn_file(b,args.outfilename+"_Bb.wfn")
 
-if args.function=='labelAB':
+if args.function=="labelAB":
+    if args.geoab == None or not os.path.isfile(args.geoab):
+        print("WARNING: -AB geometry not provided or not existing! EXIT")
+        sys.exit()
     # Read the number of atoms an check if everything makes sense: na+nb=nab
-    inpfile = open(args.geoab,'r')
+    inpfile = open(args.geoab,"r")
     nab = int(inpfile.readline().split[0])
     if args.na== None and args.nb == None:
         print("WARNING: number of atoms for A (or B) not provided! EXIT")
@@ -191,31 +196,38 @@ if args.function=='labelAB':
         sys.exit()
 
     # Print two temporary files for A and B geometries
-    outfileA = open('tmp_A.xyz','w')
-    outfileB = open('tmp_B.xyz','w')
+    outfileA = open("tmp_A.xyz","w")
+    outfileB = open("tmp_B.xyz","w")
     print(args.na, file=outfileA)
     print(args.nb, file=outfileB)
-    print('Fragment A', file=outfileA)
-    print('Fragment B', file=outfileB)
+    print("Fragment A", file=outfileA)
+    print("Fragment B", file=outfileB)
     junk = inpfile.readline()
     if not args.swapab:
         for i in range(args.na):
             line = inpfile.readline()
-            print(line, end='', file=outfileA)
+            print(line, end="", file=outfileA)
         for i in range(args.nb):
             line = inpfile.readline()
-            print(line, end='', file=outfileB)
+            print(line, end="", file=outfileB)
     else:
         for i in range(args.nb):
             line = inpfile.readline()
-            print(line, end='', file=outfileB)
+            print(line, end="", file=outfileB)
         for i in range(args.na):
             line = inpfile.readline()
-            print(line, end='', file=outfileA)
+            print(line, end="", file=outfileA)
     outfileA.close()
     outfileB.close()
-    A=read_xyz_file('tmp_A.xyz')
-    B=read_xyz_file('tmp_B.xyz')
-    os.remove('tmp_A.xyz')
-    os.remove('tmp_B.xyz')
-    write_xyz_file(args.outfilename+'_label.xyz',A,B,label=True)
+    A=read_xyz_file("tmp_A.xyz")
+    B=read_xyz_file("tmp_B.xyz")
+    os.remove("tmp_A.xyz")
+    os.remove("tmp_B.xyz")
+    write_xyz_file(args.outfilename+"_label.xyz",A,B,label=True)
+
+if args.function=="swapAB":
+    if args.geoab == None or not os.path.isfile(args.geoab):
+        print("WARNING: -AB geometry not provided or not existing! EXIT")
+        sys.exit()
+    A, B, na, nb = read_xyzlabel_file(args.geoab)
+    write_xyz_file(args.outfilename+"_label.xyz",B,A,label=True)
