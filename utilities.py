@@ -98,7 +98,15 @@ def clean_wfn(w):
         w.initialize_lists(ispin) #clear w.eigen[ispin] w.occup[ispin] e w.coeff[ispin]
     return w
 
-def split_wfn(ab, na):
+def split_wfn(ab, A, B):
+    nab = ab.natom
+    na = A.natom
+    nb = B.natom
+    if nab != (na + nb):
+        print("WARNING: in split_wfn the atoms in ab are not the sum of A and B! EXIT")
+        sys.exit()
+
+
     return a, b
 
 def write_wfn_file(wfn_object,wfn_file):

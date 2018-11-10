@@ -116,9 +116,9 @@ if args.function=="parse":
 
 if args.function=="combine":
     #if wfargs.na and wfnb are provided, combine the two wfn and print fwfn if asked
-    if (args.wfargs.na == None or args.wfnb == None):
+    if (args.wfna == None or args.wfnb == None):
         print("WARNING: wavefunctions for A or B were not provided!")
-    if (args.wfargs.na != None and args.wfnb != None):
+    if (args.wfna != None and args.wfnb != None):
         print("Converting wfns %s and %s into %s.wfn" %(args.wfna,args.wfnb,args.outfilename))
         a=read_wfn_file(args.wfna)
         b=read_wfn_file(args.wfnb)
@@ -146,7 +146,7 @@ if args.function=="cp":
         print("WARNING: -ab wave function not provided or not existing! EXIT")
         sys.exit()
     ab = read_wfn_file(args.wfnab)
-    a, b = split_wfn(ab,na)
+    a, b = split_wfn(ab,A,B)
     a_clean = clean_wfn(a)
     b_clean = clean_wfn(b)
 
