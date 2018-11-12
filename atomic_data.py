@@ -147,7 +147,7 @@ atomic_valence_default_dict = {
 }
 
 # From UFF: L-J's sigma * 0.5 (doi: 10.1021/ja00051a040)
-atomic_rad_UFF = {
+atomic_rad_UFF_dict = {
             "H"  :  1.286,
             "He" :  1.052,
             "Li" :  1.092,

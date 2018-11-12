@@ -1,10 +1,15 @@
 import sys
 import os
 import scipy.io
+import math
 import numpy as np
+from numpy.linalg import inv #to obtain the inverse of a cell
+import random
 import copy #make duplicate of a class with copy.deepcopy(class)
 from atomic_data import atomic_valence_default_dict
+from atomic_data import atomic_rad_UFF_dict
 from collections import Counter # to count the atom types
+from pprint import pprint #for debug: prints all the attributs of an obj: pprint(vars(your_object))
 
 class wfn:
     """ Wave function object, as stored in a .wfn file """
@@ -39,7 +44,7 @@ class wfn:
             self.eigen.append([0 for i in range(self.nmo[ispin])])
             self.occup.append([0 for i in range(self.nmo[ispin])])
             self.coeff.append([[0 for j in range(self.nao_tot)] for i in range(self.nmo[ispin])])
-    def specify_nel(self,nel_geom,charge,multiplicity): #default: charge=0, mult=1
+    def add_nel(self,nel_geom,charge,multiplicity): #default: charge=0, mult=1
         # Check that nel/mult/charge are consistent
         # If nspin=2 split into alpha and beta
         # If charge!=0, add/remove electrons
@@ -68,17 +73,70 @@ class mol:
         self.atom_id = [None for i in range(self.natom)]                        # counter id
         self.atom_symbol = [None for i in range(self.natom)]                    # atomic symbol
         self.atom_xyz = [[None for j in range(3)] for i in range(self.natom)]   # cartesian coordinates
-    def get_types(self):
+    def compute_types(self):
         # Count and list the atom types: extract the element name if type = elementXX (with xx being a number)
         self.ntype = len(set(self.atom_symbol))
         self.type_symbol = list(set(self.atom_symbol))
         self.element_symbol = self.type_symbol #extractelement(nelf.type_symbol) TODO
         self.type_count = Counter(self.atom_symbol)
-    def get_nel_geom(self):
+    def compute_nel_geom(self):
         # Count the number of electrons, according to the atom types
         self.nel=0
         for element in self.element_symbol:
             self.nel += atomic_valence_default_dict[element] #TODO: user number of valence el
+    def compute_fract(self, cell):
+        # Given a cell, compute the fractional coordinates of the atoms
+        self.atom_fract = np.zeros((self.natom,3))
+        for i in range(self.natom):
+            for j in range(3):
+                self.atom_fract[i][j] = self.atom_xyz[i][0] * cell.invmatrix[0][j] + \
+                                        self.atom_xyz[i][1] * cell.invmatrix[1][j] + \
+                                        self.atom_xyz[i][2] * cell.invmatrix[2][j]
+    def overwrite_xyz_from_fract(self, cell):
+        # Compute and overwrite the cartesian coordinates from the fractional ones
+        for i in range(self.natom):
+            for j in range(3):
+                self.atom_xyz[i][j] = self.atom_fract[i][0] * cell.matrix[0][j] + \
+                                      self.atom_fract[i][1] * cell.matrix[1][j] + \
+                                      self.atom_fract[i][2] * cell.matrix[2][j]
+
+class cell:
+    """ Unit cell object, you should specify if it is read from lengths+angles or matrix"""
+    def __init__(self):
+        self.from_lengths_angles = False
+        self.from_matrix = False
+        self.length = np.zeros(3)
+        self.angle_deg = np.zeros(3)
+        self.angle_rad = np.zeros(3)
+        self.matrix = np.zeros((3,3))
+    def compute_all_info(self):
+        # Compute several thing after the unit cell is specified
+        if self.from_lengths_angles:
+            if hasattr(self, 'deg'):
+                self.angle_rad = [math.radians(i) for i in self.angle_deg]
+            else:
+                self.angle_deg = [math.degrees(i) for i in self.angle_rad]
+            self.matrix = np.zeros((3,3))
+            self.matrix[0][0] = self.length[0]
+            self.matrix[0][1] = 0.0
+            self.matrix[0][2] = 0.0
+            self.matrix[1][0] = self.length[1]*math.cos(self.angle_rad[2])
+            self.matrix[1][1] = self.length[1]*math.sin(self.angle_rad[2])
+            self.matrix[1][2] = 0.0
+            self.matrix[2][0] = self.length[2]*math.cos(self.angle_rad[1])
+            self.matrix[2][1] = self.length[2]*(math.cos(self.angle_rad[0])-math.cos(self.angle_rad[2])*math.cos(self.angle_rad[1]))/math.sin(self.angle_rad[2])
+            self.matrix[2][2] = self.length[2]*math.sqrt(1-(math.cos(self.angle_rad[1]))**2-((math.cos(self.angle_rad[0])-math.cos(self.angle_rad[2])*math.cos(self.angle_rad[1]))/math.sin(self.angle_rad[2]))**2)
+            has_matrix = True
+        if self.from_matrix:
+            self.angle_rad = np.zeros(3)
+            self.length[0] = math.sqrt(self.matrix[0][0]*self.matrix[0][0]+self.matrix[0][1]*self.matrix[0][1]+self.matrix[0][2]*self.matrix[0][2])
+            self.length[1] = math.sqrt(self.matrix[1][0]*self.matrix[1][0]+self.matrix[1][1]*self.matrix[1][1]+self.matrix[1][2]*self.matrix[1][2])
+            self.length[2] = math.sqrt(self.matrix[2][0]*self.matrix[2][0]+self.matrix[2][1]*self.matrix[2][1]+self.matrix[2][2]*self.matrix[2][2])
+            self.angle_rad[0] = math.acos((self.matrix[1][0]*self.matrix[2][0]+self.matrix[1][1]*self.matrix[2][1]+self.matrix[1][2]*self.matrix[2][2])/self.length[1]/self.length[2]) #alpha=B^C
+            self.angle_rad[1] = math.acos((self.matrix[0][0]*self.matrix[2][0]+self.matrix[0][1]*self.matrix[2][1]+self.matrix[0][2]*self.matrix[2][2])/self.length[0]/self.length[2]) #beta=A^C
+            self.angle_rad[2] = math.acos((self.matrix[0][0]*self.matrix[1][0]+self.matrix[0][1]*self.matrix[1][1]+self.matrix[0][2]*self.matrix[1][2])/self.length[0]/self.length[1]) #gamma=A^B
+            self.angle_deg = [math.degrees(i) for i in self.angle_rad]
+        self.invmatrix=inv(self.matrix)
 
 def read_wfn_file(wfn_file):
     """ Parser for the .wfn file, that returns the wfn object """
@@ -200,8 +258,8 @@ def split_wfn(ab,A,B,a_charge,b_charge,a_mult,b_mult):
             b.nshell[i-na] = ab.nshell[i]
             b.nao[i-na] = ab.nao[i]
     # Count the electrons and the occupied orbitals, and initialize the lists
-    A.get_nel_geom()
-    B.get_nel_geom()
+    A.compute_nel_geom()
+    B.compute_nel_geom()
     a.specify_nel(A.nel,a_charge,a_mult)
     b.specify_nel(B.nel,b_charge,b_mult)
     if ab.nspin == 1: el_per_orb = 2
@@ -327,8 +385,35 @@ def read_xyz_file(xyz_file):
         M.atom_xyz[i][1]=float(data[2])
         M.atom_xyz[i][2]=float(data[3])
     inpfile.close()
-    M.get_types()
+    M.compute_types()
     return M
+
+def read_cell_file(cell_file):
+    """ Read the &CELL section in CP2K format """
+    """ TODO: this function can be more and more flexible in the parsing """
+    c = cell()
+    nlines = sum(1 for line in open(cell_file))
+    inpfile = open(cell_file,"r")
+    for l in range(nlines):
+        data = inpfile.readline().split()
+        if len(data)>=4 and data[0]=="A":
+            c.from_matrix = True
+            if data[1][0]=="[":
+                c.matrix[0] = data[2:5]
+            else:
+                c.matrix[0] = data[1:4]
+        if len(data)>=4 and data[0]=="B":
+            if data[1][0]=="[":
+                c.matrix[1] = data[2:5]
+            else:
+                c.matrix[1] = data[1:4]
+        if len(data)>=4 and data[0]=="C":
+            if data[1][0]=="[":
+                c.matrix[2] = data[2:5]
+            else:
+                c.matrix[2] = data[1:4]
+    c.compute_all_info()
+    return c
 
 def read_xyzlabel_file(xyz_file):
     """ Read an .xyz labelled file containing both A and B fragments """
@@ -375,6 +460,7 @@ def read_xyzlabel_file(xyz_file):
     return A, B, na, nb
 
 def write_xyz_file(xyz_file,A,B,label):
+    """ Write .xyz file, given two fragments """
     outfile = open(xyz_file,"w")
     print("%d" %(A.natom+B.natom),file=outfile)
     print("Printed using cp2k_wfntool",file=outfile)
@@ -396,6 +482,7 @@ def write_xyz_file(xyz_file,A,B,label):
     return
 
 def write_kind_file(kind_file,A,B,A_is_ghost,B_is_ghost,bs,pot):
+    """ Write CP2K's &KIND section """
     outfile = open(kind_file,"w")
     for i in range(A.ntype):
             q = atomic_valence_default_dict[A.type_symbol[i]]
@@ -414,3 +501,64 @@ def write_kind_file(kind_file,A,B,A_is_ghost,B_is_ghost,bs,pot):
             print("    &END KIND", file=outfile)
     outfile.close()
     return
+
+def rotate_rand(B):
+    """ Make a rotated B molecule, randomly and fixed the centroid """
+    """ Note: if B is very long, and the UC not cubic, strange things may happen! """
+    M = copy.deepcopy(B)
+    return M
+
+def translate_rand(B,cell):
+    """ Make a translated B molecule """
+    M = copy.deepcopy(B)
+    centroid_fract = np.zeros(3)
+    for k in range(3):
+        centroid_fract[k] = np.mean([ M.atom_fract[i][k] for i in range(M.natom)])
+    rand_transl_fract = [random.random(), random.random(), random.random()]
+    for i in range(M.natom):
+        for j in range(3):
+            M.atom_fract[i][j] = M.atom_fract[i][j] - centroid_fract[j] + rand_transl_fract[j]
+            # get in the cell if the coordinate is negative or more than unit.
+            # Note: this algorithm works well for all the cases, 0<a<1, a>1 and a<0
+            M.atom_fract[i][j] -= math.floor(M.atom_fract[i][j])
+    M.overwrite_xyz_from_fract(cell)
+    return M
+
+def has_overlap(A,B,cell,scaledrad,debug):
+    """ Checks if A and B fragments are overlapping """
+    DEBUG = debug
+    ovlp_found = False
+    dist_fract = np.zeros(3)
+    dist_xyz = np.zeros(3)
+    if DEBUG: mindist_store = 100
+    for i in range(A.natom):
+        for j in range(B.natom):
+            for k in range(3):
+                dist_fract[k] = A.atom_fract[i][k] - B.atom_fract[j][k]
+                dist_fract[k] = dist_fract[k] - int(round(dist_fract[k])) #pbc
+            for k in range(3):
+                dist_xyz[k] = dist_fract[0] * cell.matrix[0][k] + \
+                              dist_fract[1] * cell.matrix[1][k] + \
+                              dist_fract[2] * cell.matrix[2][k]
+            mindist = math.sqrt(sum([ x**2 for x in dist_xyz ]))
+            vdwdist = scaledrad * (atomic_rad_UFF_dict[A.atom_symbol[i]] +  atomic_rad_UFF_dict[B.atom_symbol[j]])
+            if DEBUG and mindist < mindist_store:
+                i_store = i
+                j_store = j
+                dist_fract_store = dist_fract
+                dist_xyz_store = dist_xyz
+                mindist_store = mindist
+                vdwdist_store = vdwdist
+            if mindist < vdwdist:
+                ovlp_found = True
+                break
+        if ovlp_found:
+            break
+    if DEBUG and not ovlp_found: #TODO: improve the printing
+        print()
+        print(i_store),j_store)
+        print(dist_fract_store)
+        print(dist_xyz_store)
+        print(mindist_store)
+        print(vdwdist_store)
+    return ovlp_found

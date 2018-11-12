@@ -37,7 +37,7 @@ wfntools combine -a fragmentA.wfn -b fragmentB.wfn -A fragmentA.xyz -B fragmentB
 * Prints the combined `outputname.kind` h the CP2K's &KIND section. Use `-bs` and `-pot` options to specify the basis set and the pseudopotential choice (TODO: read it from a CP2K input or output file)
 TODO: use the `-check` keyword to check if the number of atoms are consistent in the geometry and wfn files.
 
-#### 4) TODO: Prepare the inputs for a Counterpoise Corrected calculation (recycling the wavefunctions)
+#### 4) Prepare the inputs for a Counterpoise Corrected calculation (recycling the wavefunctions)
 ```
 wfntools cp -ab bothfragments.wfn -AB bothfragments_label.xyz -o outputname
 ```
@@ -53,12 +53,13 @@ Advanced options:
 
 ### Utilities:
 
-#### 5) TODO: Insert the fragment B in a pore of fragment A:
+#### 5) Insert the fragment B in a pore of fragment A:
 ```
 wfntools makeAB -A fragment1.xyz -B fragment2.xyz -cell unitcell1.cell -o outputname -nout 10
 ```
-This is an usefull utility to generate a number of `-nout` starting configurations of combined geometries, possibly to later adjust in Avogadro. Fragment B is inserted in a random not-overlapping position, conisdering the atoms as rigid spheres with a defined radius (from UFF) possibly scaled by a factor `-scalerad`.
+This is an usefull utility to generate a number of `-nout` starting configurations of combined geometries, possibly to later adjust in Avogadro. Fragment B is inserted in a random not-overlapping position, conisdering the atoms as rigid spheres with a defined radius (from UFF) possibly scaled by a factor `-srad`.
 Prints `outputname_AB_1.xyz` `outputname_B_1.xyz` `outputname_AB_2.xyz` `outputname_B_2.xyz` ... `outputname_AB_nout.xyz` `outputname_B_nout.xyz` ...
+Note: to avoid infinite loops in case of narrow pores, after ``-maxfail` (default: 100) overlapping insertions, the algorithm is stopped.
 
 #### 6) Label A and B in the AB geometry file:
 ```

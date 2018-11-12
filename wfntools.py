@@ -7,10 +7,12 @@ from utilities import wfn, mol
 from utilities import read_wfn_file
 from utilities import combine_wfn, split_wfn, make_clean_wfn
 from utilities import write_fwfn_file, write_wfn_file
-from utilities import read_xyz_file, read_xyzlabel_file
+from utilities import read_xyz_file, read_xyzlabel_file, read_cell_file
 from utilities import write_xyz_file, write_kind_file
+from utilities import rotate_rand, translate_rand, has_overlap
 import argparse
 from argparse import RawTextHelpFormatter #needed to go next line in the help text
+from pprint import pprint #for debug: prints all the attributs of an obj: pprint(vars(your_object))
 
 parser = argparse.ArgumentParser(description="Program to parse and combine CP2K's .wfn wavefunction files",
                                  formatter_class=RawTextHelpFormatter)
@@ -59,6 +61,12 @@ parser.add_argument("-AB","--geoab",
                       dest="geoab",
                       default=None,
                       help="Geometry of both fragments together (NB: should contain labels!)")
+
+parser.add_argument("-cell","--unitcelldimensions",
+                      type=str,
+                      dest="cell",
+                      default=None,
+                      help="File containing the unit cell in CP2K format, &CELL")
 
 parser.add_argument("-o","--outfilename",
                       type=str,
@@ -126,11 +134,35 @@ parser.add_argument("-sbs","--singlebasisset",
                       default=False,
                       help="In a CounterPoise calculation, print also Aa and Bb")
 
+parser.add_argument("-maxfail","--maxfailures",
+                      type=int,
+                      dest="maxfail",
+                      default=100,
+                      help="When using makeAB, the program is stopped after maxfail overlapping configurations")
+
+parser.add_argument("-srad","--scaledradius",
+                      type=float,
+                      dest="srad",
+                      default=1.0,
+                      help="When using makeAB, scaling factor for the atomic radii, to evaluate the overlap")
+
+parser.add_argument("-nout","--numberofoutputAB",
+                      type=int,
+                      dest="nout",
+                      default=1,
+                      help="When using makeAB, number of printed output combinations of A and B")
+
 parser.add_argument("-pf","--printformatted",
                       action="store_true",
                       dest="printformatted",
                       default=False,
                       help="When a .wfn file is printed, it prints also a formatted .fwfn file")
+
+parser.add_argument("-pmd","--printmindist",
+                      action="store_true",
+                      dest="printmindist",
+                      default=False,
+                      help="When using makeAB, prints the minimum A-B distance")
 
 args = parser.parse_args()
 
@@ -208,7 +240,7 @@ if args.function=="cp":
     if args.sbs:
         # Initialize an empty fragment
         X=mol(0)
-        X.get_types()
+        X.compute_types()
         # Print Aa
         write_xyz_file(args.outfilename+"_Aa.xyz",A,X,label=True)
         write_kind_file(args.outfilename+"_Aa.kind",A,X,True,False,args.bs,args.pot)
@@ -276,7 +308,41 @@ if args.function=="labelAB":
 
 if args.function=="swapAB":
     if args.geoab == None or not os.path.isfile(args.geoab):
-        print("WARNING: -AB geometry not provided or not existing! EXIT")
+        print("WARNING: -AB geometry file not provided or not existing! EXIT")
         sys.exit()
     A, B, na, nb = read_xyzlabel_file(args.geoab)
     write_xyz_file(args.outfilename+"_label.xyz",B,A,label=True)
+
+if args.function=="makeAB":
+    if args.geoa == None or not os.path.isfile(args.geoa):
+        print("WARNING: -A geometry file not provided or not existing! EXIT")
+        sys.exit()
+    if args.geob == None or not os.path.isfile(args.geob):
+        print("WARNING: -B geometry file not provided or not existing! EXIT")
+        sys.exit()
+    if args.cell == None or not os.path.isfile(args.cell):
+        print("WARNING: -cell file not provided or not existing! EXIT")
+        sys.exit()
+    A=read_xyz_file(args.geoa)
+    B=read_xyz_file(args.geob)
+    cell=read_cell_file(args.cell)
+    cell.compute_all_info()
+    A.compute_fract(cell)
+    B.compute_fract(cell)
+    for i in range(args.nout):
+        print("makeAB: combination #%d " %i, end="")
+        for j in range(args.maxfail):
+            print(".", end="")
+            B_rand = translate_rand(rotate_rand(B),cell)
+            if not has_overlap(A,B_rand,cell,args.srad,args.printmindist):
+                print(" not-overlapping configuration found!")
+                write_xyz_file(args.outfilename+"_"+str(i)+"_nolabel.xyz",A,B_rand,label=False)
+                write_xyz_file(args.outfilename+"_"+str(i)+"_label.xyz",A,B_rand,label=True)
+                break
+            if j==args.maxfail-1:
+                print("STOP")
+                print("WARNING: -maxfail threshold reached. EXIT")
+                print("TIP 1: increase -maxfail")
+                print("TIP 2: lower -srad")
+                print("TIP 3: check if your B molecule is too big for your A framework")
+                sys.exit()
