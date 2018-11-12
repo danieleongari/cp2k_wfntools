@@ -12,6 +12,7 @@ Consider:
 * the non-counterpoise-corrected interaction energy is: E=E(ABab)-E(Aa)-E(Bb)
 * the counterpoise-corrected interaction energy is: E=E(ABab)-E(Aab)-E(Bab)
 * E=E(Aab)-E(Aa) is the difference in the energy due to a better minimization of the wave function of the fragment A when the basis set of B is added. This value should be negative.
+* Different atom types can be specified for the same element: use the convention "type = elementX" with X being a scalar. For example, in an antiferromagnetic calculation one can use Cu1 and Cu2 to specify atoms with opposite spin. It is possible to use any number (e.g., Cu10, Cu3333), but NOT letters or symbols (e.g., Cu_1, CuUP, CuSpin1, ..., are not read correctly)
 
 ### Examples:
 #### 1) Print the formatted wavefunction:
@@ -45,6 +46,10 @@ wfntools cp -ab bothfragments.wfn -AB bothfragments_label.xyz -o outputname
 and, if `-sbs` option is used:
 * Prints outputname_Aa.wfn and outputname_Aa.kind
 * Prints outputname_Bb.wfn and outputname_Bb.kind
+**NB: if the ab.wfn was not computed with labelled geometry, the method does not work, because the atomic &KIND are mixed!**
+Advanced options:
+* `-qA` and `-qB` to specify the charge of the fragments (default: 0)
+* `multA` and `multB` to specify the multiplicity of the fragments (default: 1)
 
 ### Utilities:
 

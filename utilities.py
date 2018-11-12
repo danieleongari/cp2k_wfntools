@@ -2,6 +2,9 @@ import sys
 import os
 import scipy.io
 import numpy as np
+import copy #make duplicate of a class with copy.deepcopy(class)
+from atomic_data import atomic_valence_default_dict
+from collections import Counter # to count the atom types
 
 class wfn:
     """ Wave function object, as stored in a .wfn file """
@@ -12,11 +15,11 @@ class wfn:
                  nset_max = None,
                  nshell_max = None):
         #defined at the initialization
-        self.natom = natom              # number of atoms
-        self.nspin = nspin              # number of spins (i.e., 1 or 2)
-        self.nao_tot = nao_tot          # total number of atomic orbitals (=sum(self.nao))
-        self.nset_max = nset_max        # max number of sets in the basis set (!!!! always 1???)
-        self.nshell_max = nshell_max    # mak number of shells in each set
+        self.natom = int(natom)           # number of atoms
+        self.nspin = int(nspin)           # number of spin (i.e., 1 or 2)
+        self.nao_tot = int(nao_tot)       # total number of atomic orbitals (=sum(self.nao))
+        self.nset_max = int(nset_max)     # max number of sets in the basis set (!!!! always 1???)
+        self.nshell_max = int(nshell_max) # mak number of shells in each set
         #spin independent
         self.nset = [0 for i in range(self.natom)]                                  # number of sets for the bs of each atom
         self.nshell = [0 for i in range(self.natom)]                                # number of shells for the bs of each atom
@@ -27,49 +30,71 @@ class wfn:
         self.nvirt = [0,0]  # number of virtual molecular orbitals
         self.nel = [0,0]    # number of electrons
     def initialize_lists(self,ispin):
+        # Initialize (or reset to zero) alpha or beta molecular orbitals
         if ispin==0:
-            self.eigen = [[0 for i in range(self.nmo[ispin])]]                                  # eigenvalues for each molecular orbital
+            self.eigen = [[0 for i in range(self.nmo[ispin])]]                                 # eigenvalues for each molecular orbital
             self.occup = [[0 for i in range(self.nmo[ispin])]]                                  # occupancies for each molecular orbital
             self.coeff = [[[0 for j in range(self.nao_tot)] for i in range(self.nmo[ispin])]]   #coefficient list for each moleculat orbital
         elif ispin==1:
             self.eigen.append([0 for i in range(self.nmo[ispin])])
             self.occup.append([0 for i in range(self.nmo[ispin])])
             self.coeff.append([[0 for j in range(self.nao_tot)] for i in range(self.nmo[ispin])])
+    def specify_nel(self,nel_geom,charge,multiplicity): #default: charge=0, mult=1
+        # Check that nel/mult/charge are consistent
+        # If nspin=2 split into alpha and beta
+        # If charge!=0, add/remove electrons
+        # If multiplicity>1, rearrange alpha and beta electrons
+        self.charge = charge
+        self.mult = multiplicity
+        if self.nspin == 1:
+            if self.mult>1:
+                print("WARNING: nspin=1 but multiplicity>1! EXIT")
+                sys.exit()
+            self.nel[0] = int(nel_geom - self.charge)
+            if self.nel[0] % 2 == 1:
+                print("WARNING: nspin=1 but odd number of electrons! EXIT")
+                sys.exit()
+        elif self.nspin == 2:
+            if (nel_geom-self.charge % 2 == 1) and (self.mult % 2 == 1) :
+                print("WARNING: both number of electrons and multiplicity are odd! EXIT")
+            self.nel[0] = int((nel_geom-self.charge)/2 + (self.mult-1)/2)
+            self.nel[1] = int((nel_geom-self.charge)/2 - (self.mult-1)/2)
 
 class mol:
     """ Molecule object, without the unit cell """
-    def __init__(self,
-                 natom = None):
+    def __init__(self, natom = None):
+        # Initialize the molecule, known the number of atoms
         self.natom = natom                                                      # number of atoms
         self.atom_id = [None for i in range(self.natom)]                        # counter id
         self.atom_symbol = [None for i in range(self.natom)]                    # atomic symbol
         self.atom_xyz = [[None for j in range(3)] for i in range(self.natom)]   # cartesian coordinates
     def get_types(self):
+        # Count and list the atom types: extract the element name if type = elementXX (with xx being a number)
         self.ntype = len(set(self.atom_symbol))
         self.type_symbol = list(set(self.atom_symbol))
-
+        self.element_symbol = self.type_symbol #extractelement(nelf.type_symbol) TODO
+        self.type_count = Counter(self.atom_symbol)
+    def get_nel_geom(self):
+        # Count the number of electrons, according to the atom types
+        self.nel=0
+        for element in self.element_symbol:
+            self.nel += atomic_valence_default_dict[element] #TODO: user number of valence el
 
 def read_wfn_file(wfn_file):
     """ Parser for the .wfn file, that returns the wfn object """
-
     inpfile = scipy.io.FortranFile(wfn_file, "r")
-
     natom, nspin, nao_tot, nset_max, nshell_max = inpfile.read_ints()
     w=wfn(natom,nspin,nao_tot,nset_max,nshell_max)
-
     nset = inpfile.read_ints()
     for i, val in enumerate(nset):
         w.nset[i]=val
-
     nshell = inpfile.read_ints()
     for i, val in enumerate(nshell):
         w.nshell[i]=val
-
     nao = inpfile.read_ints()
     for i, val in enumerate(nao):
         iatom, ishell = divmod(i,w.nshell_max) # this splits the atomic orbitals in one list for each atom
         w.nao[iatom][ishell]=val
-
     for ispin in range(w.nspin):
         nmo, nocc, nvirt, nel = inpfile.read_ints()
         w.nmo[ispin]=nmo
@@ -77,13 +102,11 @@ def read_wfn_file(wfn_file):
         w.nvirt[ispin]=nvirt
         w.nel[ispin]=nel
         w.initialize_lists(ispin)
-
         eigen_and_occup = inpfile.read_reals() #this line contains both
         for i in range(w.nmo[ispin]):
             w.eigen[ispin][i]=eigen_and_occup[i]
         for i in range(w.nmo[ispin]):
             w.occup[ispin][i]=eigen_and_occup[i+w.nmo[ispin]]
-
         for imo in range(w.nmo[ispin]):
             coeff = inpfile.read_reals()
             for i, val in enumerate(coeff):
@@ -91,22 +114,116 @@ def read_wfn_file(wfn_file):
     inpfile.close()
     return w
 
-def clean_wfn(w):
-    """ Given a wfn, set to zero wfn.eigen, wfn.occup and wfn.coeff """
-    ispin = w.nspin
-    for ispin in range(nspin):
-        w.initialize_lists(ispin) #clear w.eigen[ispin] w.occup[ispin] e w.coeff[ispin]
+def make_clean_wfn(w):
+    """ Given a wfn, duplicate it and set to zero the coeffs """
+    x = copy.deepcopy(w)
+    for ispin in range(x.nspin):
+        for i in range(x.nmo[ispin]):
+            for j in range(x.nao_tot):
+                x.coeff[ispin][i][j] = 0.0
+    return x
+
+def combine_wfn(a,b):
+    """ Combine wfns a and b into a single ab wfn object """
+    natom=a.natom+b.natom
+    nspin=max(a.nspin,b.nspin)
+    nao_tot=a.nao_tot+b.nao_tot
+    nset_max=max(a.nset_max,b.nset_max)
+    nshell_max=max(a.nshell_max,b.nshell_max)
+    w=wfn(natom,nspin,nao_tot,nset_max,nshell_max)
+    nset = a.nset+b.nset
+    for i, val in enumerate(nset):
+        w.nset[i]=val
+    nshell = a.nshell+b.nshell
+    for i, val in enumerate(nshell):
+        w.nshell[i]=val
+    #Note: if w.nshell_max>a.shell_max I need to leave some zeros
+    for iatom in range(w.natom):
+        if iatom<a.natom:
+            for ishell in range(a.nshell_max):
+                w.nao[iatom][ishell]=a.nao[iatom][ishell]
+        else:
+            for ishell in range(b.nshell_max):
+                w.nao[iatom][ishell]=b.nao[iatom-a.natom][ishell]
+    if a.nspin==1 and w.nspin==2: a=makeopenshell(a)
+    if b.nspin==1 and w.nspin==2: b=makeopenshell(b)
+    for ispin in range(w.nspin):
+        w.nmo[ispin]=a.nmo[ispin]+b.nmo[ispin]
+        w.nocc[ispin]=a.nocc[ispin]+b.nocc[ispin]
+        w.nvirt[ispin]=a.nvirt[ispin]+b.nvirt[ispin] #not sure this is right!
+        w.nel[ispin]=a.nel[ispin]+b.nel[ispin]
+        w.initialize_lists(ispin)
+        w.eigen[ispin]=a.eigen[ispin]+b.eigen[ispin]
+        w.occup[ispin]=a.occup[ispin]+b.occup[ispin]
+        #Note: you need to leave zeros for mixed AO/MO coeffs
+        for imo in range(w.nmo[ispin]):
+            if imo<a.nmo[ispin]:
+                for iao in range(a.nao_tot):
+                    w.coeff[ispin][imo][iao]=a.coeff[ispin][imo][iao]
+            else:
+                for iao in range(b.nao_tot):
+                    w.coeff[ispin][imo][a.nao_tot+iao]=b.coeff[ispin][imo-a.nmo[ispin]][iao]
     return w
 
-def split_wfn(ab, A, B):
+def split_wfn(ab,A,B,a_charge,b_charge,a_mult,b_mult):
+    """ Split the ab wfn into a and b wfns """
     nab = ab.natom
     na = A.natom
     nb = B.natom
     if nab != (na + nb):
-        print("WARNING: in split_wfn the atoms in ab are not the sum of A and B! EXIT")
+        print("WARNING: in split_wfn the atoms in ab (from the wfn file)" +
+              " are not the sum of A and B (from the geometry file)! EXIT")
         sys.exit()
-
-
+    if ab.nset_max>1:
+        print("PROGRAM WARNING: I still don't know how to work" +
+              " with multiple nset_max > 1! CONTACT THE AUTHORS! EXIT")
+        sys.exit()
+    # Count the number of atomic orbitals for A and B and initialize the a and b wfns
+    a_nao_tot=0
+    b_nao_tot=0
+    for i in range(nab):
+        if i < na:
+            a_nao_tot+=sum(ab.nao[i])
+        else:
+            b_nao_tot+=sum(ab.nao[i])
+    #Note1: for semplicity I keep the same n_shell max even if the single wfn has less
+    #Note2: if nspin=2 you want to keep uks for both in the CP calculation
+    a=wfn(na,ab.nspin,a_nao_tot,ab.nset_max,ab.nshell_max)
+    b=wfn(nb,ab.nspin,b_nao_tot,ab.nset_max,ab.nshell_max)
+    for i in range(nab):
+        if i < na:
+            a.nset[i] = ab.nset[i]
+            a.nshell[i] = ab.nshell[i]
+            a.nao[i] = ab.nao[i]
+        else:
+            b.nset[i-na] = ab.nset[i]
+            b.nshell[i-na] = ab.nshell[i]
+            b.nao[i-na] = ab.nao[i]
+    # Count the electrons and the occupied orbitals, and initialize the lists
+    A.get_nel_geom()
+    B.get_nel_geom()
+    a.specify_nel(A.nel,a_charge,a_mult)
+    b.specify_nel(B.nel,b_charge,b_mult)
+    if ab.nspin == 1: el_per_orb = 2
+    elif ab.nspin == 2: el_per_orb = 1
+    for w in [a,b]:
+        for ispin in range(ab.nspin):
+            w.nmo[ispin] = int(w.nel[ispin]/el_per_orb)
+            w.nocc[ispin] = w.nmo[ispin]  #all the orbitals are occupied
+            w.nvirt[ispin] = 0            #no virtual orbitals
+            w.nel[ispin] = a.nel[ispin]
+            w.initialize_lists(ispin)
+            for i in range(w.nmo[ispin]):
+                w.eigen[ispin][i] = 0.0 #left to zero
+                w.occup[ispin][i] = float(el_per_orb)
+    # Split the coefficients
+    for ispin in range(ab.nspin):
+        for i in range(a.nmo[ispin]):
+            for j in range(a.nao_tot):
+                a.coeff[ispin][i][j] = ab.coeff[ispin][i][j]
+        for i in range(b.nmo[ispin]):
+            for j in range(b.nao_tot):
+                b.coeff[ispin][i][j] = ab.coeff[ispin][i+a.nmo[ispin]][j+a.nao_tot]
     return a, b
 
 def write_wfn_file(wfn_object,wfn_file):
@@ -130,7 +247,7 @@ def write_fwfn_file(wfn_object,fwfn_file):
     outfile = open(fwfn_file, "w")
     w=wfn_object
     print("Number of atoms: %d" %w.natom, file=outfile)
-    print("Number of spins: %d" %w.nspin, file=outfile)
+    print("Number of spin: %d" %w.nspin, file=outfile)
     print("Total number of atomic orbitals (AOs): %d" %w.nao_tot, file=outfile)
     print("Maximum number of sets: %d" %w.nset_max, file=outfile)
     print("Maximum number of shells: %d" %w.nshell_max, file=outfile)
@@ -148,7 +265,6 @@ def write_fwfn_file(wfn_object,fwfn_file):
         for j in list:
             print(" %d" %j, end="",file=outfile)
         print(" ]",file=outfile)
-
     for ispin in range(w.nspin):
         print("", file=outfile)
         print("Information for spin %d:" %ispin, file=outfile)
@@ -172,57 +288,6 @@ def write_fwfn_file(wfn_object,fwfn_file):
             print(" ]",file=outfile)
     outfile.close()
     return
-
-
-def combine_wfn(a,b):
-    """ Combine wfns a and b into a single ab wfn object """
-
-    natom=a.natom+b.natom
-    nspin=max(a.nspin,b.nspin)
-    nao_tot=a.nao_tot+b.nao_tot
-    nset_max=max(a.nset_max,b.nset_max)
-    nshell_max=max(a.nshell_max,b.nshell_max)
-    w=wfn(natom,nspin,nao_tot,nset_max,nshell_max)
-
-    nset = a.nset+b.nset
-    for i, val in enumerate(nset):
-        w.nset[i]=val
-
-    nshell = a.nshell+b.nshell
-    for i, val in enumerate(nshell):
-        w.nshell[i]=val
-
-    #BC: now it can be that w.nshell_max>a.shell_max and I need to leave some zeros
-    for iatom in range(w.natom):
-        if iatom<a.natom:
-            for ishell in range(a.nshell_max):
-                w.nao[iatom][ishell]=a.nao[iatom][ishell]
-        else:
-            for ishell in range(b.nshell_max):
-                w.nao[iatom][ishell]=b.nao[iatom-a.natom][ishell]
-
-    if a.nspin==1 and w.nspin==2: a=makeopenshell(a)
-    if b.nspin==1 and w.nspin==2: b=makeopenshell(b)
-
-    for ispin in range(w.nspin):
-        w.nmo[ispin]=a.nmo[ispin]+b.nmo[ispin]
-        w.nocc[ispin]=a.nocc[ispin]+b.nocc[ispin]
-        w.nvirt[ispin]=a.nvirt[ispin]+b.nvirt[ispin] #not sure this is right!
-        w.nel[ispin]=a.nel[ispin]+b.nel[ispin]
-        w.initialize_lists(ispin)
-
-        w.eigen[ispin]=a.eigen[ispin]+b.eigen[ispin]
-        w.occup[ispin]=a.occup[ispin]+b.occup[ispin]
-
-        #BC: you need to leave zeros for mixed AO/MO coeffs
-        for imo in range(w.nmo[ispin]):
-            if imo<a.nmo[ispin]:
-                for iao in range(a.nao_tot):
-                    w.coeff[ispin][imo][iao]=a.coeff[ispin][imo][iao]
-            else:
-                for iao in range(b.nao_tot):
-                    w.coeff[ispin][imo][a.nao_tot+iao]=b.coeff[ispin][imo-a.nmo[ispin]][iao]
-    return w
 
 def makeopenshell(v):
     """ Makes a restricted (e.g., nspin=1) wfn open shell (e.g., nspin=2) """
@@ -333,17 +398,19 @@ def write_xyz_file(xyz_file,A,B,label):
 def write_kind_file(kind_file,A,B,A_is_ghost,B_is_ghost,bs,pot):
     outfile = open(kind_file,"w")
     for i in range(A.ntype):
+            q = atomic_valence_default_dict[A.type_symbol[i]]
             print("    &KIND %s" %(A.type_symbol[i]+"_A"), file=outfile)
             print("      ELEMENT %s" %(A.type_symbol[i]), file=outfile)
-            print("      BASIS_SET %s" %bs, file=outfile)
+            print("      BASIS_SET %s-q%d" %(bs,q), file=outfile)
             if A_is_ghost: print("      GHOST", file=outfile)
-            else:          print("      POTENTIAL %s" %pot, file=outfile)
+            else:          print("      POTENTIAL %s-q%d" %(pot,q), file=outfile)
     for i in range(B.ntype):
+            q = atomic_valence_default_dict[B.type_symbol[i]]
             print("    &KIND %s" %(B.type_symbol[i]+"_B"), file=outfile)
             print("      ELEMENT %s" %(B.type_symbol[i]), file=outfile)
-            print("      BASIS_SET %s" %bs, file=outfile)
+            print("      BASIS_SET %s-q%d" %(bs,q), file=outfile)
             if B_is_ghost: print("      GHOST", file=outfile)
-            else:          print("      POTENTIAL %s" %pot, file=outfile)
+            else:          print("      POTENTIAL %s-q%d" %(pot,q), file=outfile)
             print("    &END KIND", file=outfile)
     outfile.close()
     return

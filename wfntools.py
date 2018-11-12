@@ -4,7 +4,8 @@ import sys
 import os
 from atomic_data import atomic_symbols, atomic_names
 from utilities import wfn, mol
-from utilities import read_wfn_file, combine_wfn
+from utilities import read_wfn_file
+from utilities import combine_wfn, split_wfn, make_clean_wfn
 from utilities import write_fwfn_file, write_wfn_file
 from utilities import read_xyz_file, read_xyzlabel_file
 from utilities import write_xyz_file, write_kind_file
@@ -77,17 +78,41 @@ parser.add_argument("-pot","--potential",
                       default="GTH-PBE",
                       help="CP2K pseudopotential choice for the .kind file")
 
-parser.add_argument("-nA","--numberatomsa",
+parser.add_argument("-nA","--numberofatomsinA",
                       type=int,
                       dest="na",
                       default=None,
                       help="Number of atoms of fragment A")
 
-parser.add_argument("-nB","--numberatomsb",
+parser.add_argument("-nB","--numberofatomsinB",
                       type=int,
                       dest="nb",
                       default=None,
                       help="Number of atoms of fragment B")
+
+parser.add_argument("-qA","--chargeofA",
+                      type=int,
+                      dest="qa",
+                      default=0,
+                      help="Charge of fragment A")
+
+parser.add_argument("-qB","--chargeofB",
+                      type=int,
+                      dest="qb",
+                      default=0,
+                      help="Charge of fragment B")
+
+parser.add_argument("-multA","--multiplicityofA",
+                      type=int,
+                      dest="multa",
+                      default=1,
+                      help="Multiplicity of fragment A")
+
+parser.add_argument("-multB","--multiplicityofB",
+                      type=int,
+                      dest="multb",
+                      default=1,
+                      help="Multiplicity of fragment B")
 
 parser.add_argument("-swapAB","--swapAwithB",
                       action="store_true",
@@ -101,7 +126,7 @@ parser.add_argument("-sbs","--singlebasisset",
                       default=False,
                       help="In a CounterPoise calculation, print also Aa and Bb")
 
-parser.add_argument("-f","--printformatted",
+parser.add_argument("-pf","--printformatted",
                       action="store_true",
                       dest="printformatted",
                       default=False,
@@ -110,8 +135,24 @@ parser.add_argument("-f","--printformatted",
 args = parser.parse_args()
 
 if args.function=="parse":
-    print("Converting %s binary file in %s.fwfn formatted file." %(args.wfna,args.outfilename))
-    a=read_wfn_file(args.wfna)
+    # Note: any -a -b -ab tag can be used to specify the wfn, but not more than one
+    if args.wfna == None and args.wfnb == None and args.wfnab == None:
+        print("WARNING: wfn file not specified! EXIT")
+        sys.exit()
+    elif args.wfna != None and args.wfnb == None and args.wfnab == None:
+        wfnfile = args.wfna
+    elif args.wfna == None and args.wfnb != None and args.wfnab == None:
+        wfnfile = args.wfnb
+    elif args.wfna == None and args.wfnb == None and args.wfnab != None:
+        wfnfile = args.wfnab
+    else:
+        print("WARNING: more than one wfn file specified! EXIT")
+        sys.exit()
+    if not os.path.isfile(wfnfile):
+        print("WARNING: wfn file not existing! EXIT")
+        sys.exit()
+    print("Converting %s binary file in %s.fwfn formatted file." %(wfnfile,args.outfilename))
+    a=read_wfn_file(wfnfile)
     write_fwfn_file(a,args.outfilename+".fwfn")
 
 if args.function=="combine":
@@ -146,21 +187,25 @@ if args.function=="cp":
         print("WARNING: -ab wave function not provided or not existing! EXIT")
         sys.exit()
     ab = read_wfn_file(args.wfnab)
-    a, b = split_wfn(ab,A,B)
-    a_clean = clean_wfn(a)
-    b_clean = clean_wfn(b)
+    a, b = split_wfn(ab,A,B,args.qa,args.qb,args.multa,args.multb)
+    a_clean = make_clean_wfn(a)
+    b_clean = make_clean_wfn(b)
 
     # Print Aab
     a_ab = combine_wfn(a,b_clean)
     write_xyz_file(args.outfilename+"_Aab.xyz",A,B,label=True)
     write_kind_file(args.outfilename+"_Aab.kind",A,B,False,True,args.bs,args.pot)
     write_wfn_file(a_ab,args.outfilename+"_Aab.wfn")
+    if args.printformatted:
+        write_fwfn_file(a_ab,args.outfilename+"_Aab.fwfn")
     # Print Bab
     b_ab = combine_wfn(a_clean,b)
     write_xyz_file(args.outfilename+"_Bab.xyz",A,B,label=True)
     write_kind_file(args.outfilename+"_Bab.kind",A,B,True,False,args.bs,args.pot)
     write_wfn_file(b_ab,args.outfilename+"_Bab.wfn")
-    if sbs:
+    if args.printformatted:
+        write_fwfn_file(b_ab,args.outfilename+"_Bab.fwfn")
+    if args.sbs:
         # Initialize an empty fragment
         X=mol(0)
         X.get_types()
@@ -168,10 +213,14 @@ if args.function=="cp":
         write_xyz_file(args.outfilename+"_Aa.xyz",A,X,label=True)
         write_kind_file(args.outfilename+"_Aa.kind",A,X,True,False,args.bs,args.pot)
         write_wfn_file(a,args.outfilename+"_Aa.wfn")
+        if args.printformatted:
+            write_fwfn_file(a,args.outfilename+"_Aa.fwfn")
         # Print Bb
         write_xyz_file(args.outfilename+"_Bb.xyz",A,X,label=True)
         write_kind_file(args.outfilename+"_Bb.kind",A,X,True,False,args.bs,args.pot)
         write_wfn_file(b,args.outfilename+"_Bb.wfn")
+        if args.printformatted:
+            write_fwfn_file(a,args.outfilename+"_Bb.fwfn")
 
 if args.function=="labelAB":
     if args.geoab == None or not os.path.isfile(args.geoab):
