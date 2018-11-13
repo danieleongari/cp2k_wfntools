@@ -64,17 +64,29 @@ parser.add_argument("-AB","--geoab",
                       default=None,
                       help="Geometry of both fragments together (NB: should contain labels!)")
 
+parser.add_argument("-akind","--kindfileA",
+                      type=str,
+                      dest="kindfilea",
+                      default=None,
+                      help="File containing the BS and PSEUDO in CP2K &KIND format, for fragment A")
+
+parser.add_argument("-bkind","--kindfileB",
+                      type=str,
+                      dest="kindfileb",
+                      default=None,
+                      help="File containing the BS and PSEUDO in CP2K &KIND format, for fragment B")
+
+parser.add_argument("-abkind","--kindfileAB",
+                      type=str,
+                      dest="kindfileab",
+                      default=None,
+                      help="File containing the BS and PSEUDO in CP2K &KIND format, for both fragments")
+
 parser.add_argument("-cell","--unitcelldimensions",
                       type=str,
                       dest="cell",
                       default=None,
                       help="File containing the unit cell in CP2K format, &CELL")
-
-parser.add_argument("-kind","--kindfile",
-                      type=str,
-                      dest="kindfile",
-                      default=None,
-                      help="File containing the BS and PSEUDO in CP2K &KIND format")
 
 parser.add_argument("-o","--outfilename",
                       type=str,
@@ -216,6 +228,10 @@ if args.function=="combine":
         print("Converting geometries %s and %s into %s_label.xyz" %(args.geoa,args.geob,args.outfilename))
         A=read_xyz_file(args.geoa)
         B=read_xyz_file(args.geob)
+        if args.kindfilea != None:
+            read_kind_file(args.kindfilea,A,None)
+        if args.kindfileb != None:
+            read_kind_file(args.kindfileb,None,B)
         write_xyz_file(args.outfilename+"_nolabel.xyz",A,B,label=False)
         write_xyz_file(args.outfilename+"_label.xyz",A,B,label=True)
         write_kind_file(args.outfilename+".kind",A,B,False,False,args.bs,args.pot)
@@ -225,6 +241,8 @@ if args.function=="cp":
         print("WARNING: -AB geometry not provided or not existing! EXIT")
         sys.exit()
     A, B, na, nb = read_xyzlabel_file(args.geoab)
+    if args.kindfileab != None:
+        read_kind_file(args.kindfileab,A,B)
     if args.wfnab == None or not os.path.isfile(args.wfnab):
         print("WARNING: -ab wave function not provided or not existing! EXIT")
         sys.exit()
@@ -361,7 +379,7 @@ if args.function == "debug_kind":
     print("DEBUG: Reading %s geometry as A" %args.geoa)
     A = read_xyz_file(args.geoa)
     print("DEBUG: Reading %s kind file for A" %args.kindfile)
-    read_kind_file(args.kindfile,A,None)
+    read_kind_file(args.kindfilea,A,None)
     X=mol(0)
     X.compute_types()
     print("DEBUG: Printing %s kind file for A, after parsing" %args.outfilename+".kind")
