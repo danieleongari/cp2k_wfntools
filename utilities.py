@@ -70,19 +70,24 @@ class mol:
     def __init__(self, natom = None):
         # Initialize the molecule, known the number of atoms
         self.natom = natom                                                      # number of atoms
-        self.atom_id = [None for i in range(self.natom)]                        # counter id
-        self.atom_symbol = [None for i in range(self.natom)]                    # atomic symbol
+        self.atom_type = [None for i in range(self.natom)]                      # atomic type: e.g., Cu1
         self.atom_xyz = [[None for j in range(3)] for i in range(self.natom)]   # cartesian coordinates
     def compute_types(self):
         # Count and list the atom types: extract the element name if type = elementXX (with xx being a number)
-        self.ntype = len(set(self.atom_symbol))
-        self.type_symbol = list(set(self.atom_symbol))
-        self.element_symbol = self.type_symbol #extractelement(nelf.type_symbol) TODO
-        self.type_count = Counter(self.atom_symbol)
+        self.atom_element = [extract_element(x) for x in self.atom_type]        # atomic element: e.g., Cu
+        self.ntype = len(set(self.atom_type))                                   # number of different atom types
+        self.type_symbol = list(set(self.atom_type))                            # list of types
+        self.type_element = {}
+        for x in self.type_symbol:
+            self.type_element.update({x:extract_element(x)})                    # list of elements for each type
+        self.type_count = Counter(self.atom_type)                               # count of atoms for each type
+        self.bs = {}                                                            # gaussian basis set
+        self.pot = {}                                                           # pseudopotential
+        self.q = {}                                                             # valence electrons
     def compute_nel_geom(self):
         # Count the number of electrons, according to the atom types
         self.nel=0
-        for element in self.element_symbol:
+        for element in self.type_element:
             self.nel += atomic_valence_default_dict[element] #TODO: user number of valence el
     def compute_fract(self, cell):
         # Given a cell, compute the fractional coordinates of the atoms
@@ -99,6 +104,14 @@ class mol:
                 self.atom_xyz[i][j] = self.atom_fract[i][0] * cell.matrix[0][j] + \
                                       self.atom_fract[i][1] * cell.matrix[1][j] + \
                                       self.atom_fract[i][2] * cell.matrix[2][j]
+    def add_bspot(self, kind, bs, pot):
+        # If valence electron are specified, remove it and store it separately
+        self.bs.update({kind:bs.split("-q")[0]})
+        self.pot.update({kind:pot.split("-q")[0]})
+        for val in bs, pot:
+            if len(val.split("-q"))>1:
+                self.q.update({kind:int(val.split("-q")[1])})
+
 
 class cell:
     """ Unit cell object, you should specify if it is read from lengths+angles or matrix"""
@@ -137,6 +150,22 @@ class cell:
             self.angle_rad[2] = math.acos((self.matrix[0][0]*self.matrix[1][0]+self.matrix[0][1]*self.matrix[1][1]+self.matrix[0][2]*self.matrix[1][2])/self.length[0]/self.length[1]) #gamma=A^B
             self.angle_deg = [math.degrees(i) for i in self.angle_rad]
         self.invmatrix=inv(self.matrix)
+
+def extract_element(type):
+    """ Clear numberical values at the end of a string, for each string in a list """
+    for x in type[::-1]: # Reverse string
+        if x.isnumeric():
+            type = type[:-1]
+    return type
+
+def advreadline(inpfile):
+    """ Avanced readline: return the splitted line or the string 'EoF' """
+    line = inpfile.readline()
+    if line == "":
+        data = "EoF"
+    else:
+        data = line.split()
+    return data
 
 def read_wfn_file(wfn_file):
     """ Parser for the .wfn file, that returns the wfn object """
@@ -260,8 +289,8 @@ def split_wfn(ab,A,B,a_charge,b_charge,a_mult,b_mult):
     # Count the electrons and the occupied orbitals, and initialize the lists
     A.compute_nel_geom()
     B.compute_nel_geom()
-    a.specify_nel(A.nel,a_charge,a_mult)
-    b.specify_nel(B.nel,b_charge,b_mult)
+    a.add_nel(A.nel,a_charge,a_mult)
+    b.add_nel(B.nel,b_charge,b_mult)
     if ab.nspin == 1: el_per_orb = 2
     elif ab.nspin == 2: el_per_orb = 1
     for w in [a,b]:
@@ -368,7 +397,7 @@ def makeopenshell(v):
         return w
 
 def read_xyz_file(xyz_file):
-    """ Read an .xyz file, containing only one fragment. Skip labels if present """
+    """ Read an .xyz file, containing only one fragment. Neglect _A and _B labels if present """
     inpfile = open(xyz_file,"r")
     data = inpfile.readline().split()
     natom = int(data[0])
@@ -376,44 +405,16 @@ def read_xyz_file(xyz_file):
     junk = inpfile.readline()
     for i in range(natom):
         data = inpfile.readline().split()
-        M.atom_id[i]=i
         if data[0][-2:]=="_A" or data[0][-2:]=="_B":
-            M.atom_symbol[i]=data[0][:-2]
+            M.atom_type[i]=data[0][:-2]
         else:
-            M.atom_symbol[i]=data[0]
+            M.atom_type[i]=data[0]
         M.atom_xyz[i][0]=float(data[1])
         M.atom_xyz[i][1]=float(data[2])
         M.atom_xyz[i][2]=float(data[3])
     inpfile.close()
     M.compute_types()
     return M
-
-def read_cell_file(cell_file):
-    """ Read the &CELL section in CP2K format """
-    """ TODO: this function can be more and more flexible in the parsing """
-    c = cell()
-    nlines = sum(1 for line in open(cell_file))
-    inpfile = open(cell_file,"r")
-    for l in range(nlines):
-        data = inpfile.readline().split()
-        if len(data)>=4 and data[0]=="A":
-            c.from_matrix = True
-            if data[1][0]=="[":
-                c.matrix[0] = data[2:5]
-            else:
-                c.matrix[0] = data[1:4]
-        if len(data)>=4 and data[0]=="B":
-            if data[1][0]=="[":
-                c.matrix[1] = data[2:5]
-            else:
-                c.matrix[1] = data[1:4]
-        if len(data)>=4 and data[0]=="C":
-            if data[1][0]=="[":
-                c.matrix[2] = data[2:5]
-            else:
-                c.matrix[2] = data[1:4]
-    c.compute_all_info()
-    return c
 
 def read_xyzlabel_file(xyz_file):
     """ Read an .xyz labelled file containing both A and B fragments """
@@ -460,20 +461,20 @@ def read_xyzlabel_file(xyz_file):
     return A, B, na, nb
 
 def write_xyz_file(xyz_file,A,B,label):
-    """ Write .xyz file, given two fragments """
+    """ Write .xyz file, given two fragments. With label True prints 'Cu1_A', with False 'Cu' """
     outfile = open(xyz_file,"w")
     print("%d" %(A.natom+B.natom),file=outfile)
     print("Printed using cp2k_wfntool",file=outfile)
     for i in range(A.natom):
-        if label: atom_label=A.atom_symbol[i]+"_A"
-        else: atom_label=A.atom_symbol[i]
+        if label: atom_label=A.atom_type[i]+"_A"
+        else: atom_label=A.atom_element[i]
         print("%s %10.5f %10.5f %10.5f" %(atom_label,
                                           A.atom_xyz[i][0],
                                           A.atom_xyz[i][1],
                                           A.atom_xyz[i][2]), file=outfile)
     for i in range(B.natom):
-        if label: atom_label=B.atom_symbol[i]+"_B"
-        else: atom_label=B.atom_symbol[i]
+        if label: atom_label=B.atom_type[i]+"_B"
+        else: atom_label=B.atom_element[i]
         print("%s %10.5f %10.5f %10.5f" %(atom_label,
                                           B.atom_xyz[i][0],
                                           B.atom_xyz[i][1],
@@ -481,24 +482,118 @@ def write_xyz_file(xyz_file,A,B,label):
     outfile.close()
     return
 
-def write_kind_file(kind_file,A,B,A_is_ghost,B_is_ghost,bs,pot):
+def read_cell_file(cell_file):
+    """ Read the &CELL section in CP2K format """
+    """ TODO: this function can be more and more flexible in the parsing """
+    c = cell()
+    nlines = sum(1 for line in open(cell_file))
+    inpfile = open(cell_file,"r")
+    for l in range(nlines):
+        data = inpfile.readline().split()
+        if len(data)>=4 and data[0]=="A":
+            c.from_matrix = True
+            if data[1][0]=="[":
+                c.matrix[0] = data[2:5]
+            else:
+                c.matrix[0] = data[1:4]
+        if len(data)>=4 and data[0]=="B":
+            if data[1][0]=="[":
+                c.matrix[1] = data[2:5]
+            else:
+                c.matrix[1] = data[1:4]
+        if len(data)>=4 and data[0]=="C":
+            if data[1][0]=="[":
+                c.matrix[2] = data[2:5]
+            else:
+                c.matrix[2] = data[1:4]
+        if len(data)>=4 and data[0]=="ABC":
+            c.from_lengths_angles = True
+            if data[1][0]=="[":
+                c.length = data[2:5]
+            else:
+                c.length = data[1:4]
+        if len(data)>=4 and data[0]=="ALPHA_BETA_GAMMA":
+            if data[1][0]=="[":
+                c.angle = data[2:5]
+            else:
+                c.angle = data[1:4]
+    c.compute_all_info()
+    return c
+
+def read_kind_file(kind_file,A,B):
+    """ Read CP2K's &KIND section. """
+    """ Use A or B = None to use only one fragment, so that labels are not needed """
+    inpfile = open(kind_file,"r")
+    data = None
+    while data != "EoF":
+        data = advreadline(inpfile)
+        if len(data)>=2 and data[0]=="&KIND":
+            kind = data[1]
+            # Decide if the kind belongs to A or B
+            if kind[-2:] == "_A" or B == None:
+                M = A
+            if kind[-2:] == "_B" or A == None:
+                M = B
+            if kind[-2:] == "_A" or kind[-2:] == "_B":
+                kind = kind[:-2]
+            # Check if the kind is in the molecule, otherwise skip it
+            kind_in_mol = False
+            if kind in M.type_symbol:
+                kind_in_mol = True
+            # Look for BASIS_SET and PSEUDO
+            bs = None
+            pot = None
+            while data != "EoF" and kind_in_mol:
+                data = advreadline(inpfile)
+                if len(data)>=1 and data[0]=="&END":
+                    break
+                if len(data)>=2 and data[0]=="BASIS_SET":
+                    bs = data[1]
+                if len(data)>=2 and data[0]=="POTENTIAL":
+                    pot = data[1]
+                if len(data)>=1 and data[0]=="GHOST":
+                    print("WARNING: reading .kind and not expecting a GHOST here! EXIT")
+                    sys.exit()
+            if kind_in_mol:
+                M.add_bspot(kind, bs, pot)
+    # Final check
+    for M in A,B:
+        if M != None:
+            if len(A.bs) != A.ntype:
+                print("WARNING: the basis set is read from a kind file, but has a different number of types!")
+    return
+
+def write_kind_file(kind_file,A,B,A_is_ghost,B_is_ghost,bs_choice,pot_choice):
     """ Write CP2K's &KIND section """
     outfile = open(kind_file,"w")
-    for i in range(A.ntype):
-            q = atomic_valence_default_dict[A.type_symbol[i]]
-            print("    &KIND %s" %(A.type_symbol[i]+"_A"), file=outfile)
-            print("      ELEMENT %s" %(A.type_symbol[i]), file=outfile)
-            print("      BASIS_SET %s-q%d" %(bs,q), file=outfile)
-            if A_is_ghost: print("      GHOST", file=outfile)
-            else:          print("      POTENTIAL %s-q%d" %(pot,q), file=outfile)
-    for i in range(B.ntype):
-            q = atomic_valence_default_dict[B.type_symbol[i]]
-            print("    &KIND %s" %(B.type_symbol[i]+"_B"), file=outfile)
-            print("      ELEMENT %s" %(B.type_symbol[i]), file=outfile)
-            print("      BASIS_SET %s-q%d" %(bs,q), file=outfile)
-            if B_is_ghost: print("      GHOST", file=outfile)
-            else:          print("      POTENTIAL %s-q%d" %(pot,q), file=outfile)
-            print("    &END KIND", file=outfile)
+    for M in A,B:
+        for x in M.type_symbol:
+            if M == A :
+                label = "_A"
+                is_ghost = A_is_ghost
+            if M == B :
+                label = "_B"
+                is_ghost = B_is_ghost
+            e = M.type_element[x]
+            q = atomic_valence_default_dict[e]
+            if bs_choice == "read" and (x in M.q):
+                q = M.q[x]
+            print("    &KIND %s" %(x+label), file=outfile)
+            print("      ELEMENT %s" %e, file=outfile)
+            if bs_choice == "read":
+                bs = M.bs[x]+"-q"+str(q)
+            else:
+                bs = bs_choice+"-q"+str(q)
+            print("      BASIS_SET %s" %bs, file=outfile)
+            if is_ghost:
+                print("      GHOST", file=outfile)
+            else:
+                if pot_choice == "read":
+                    pot = M.pot[x]+"-q"+str(q)
+                else:
+                    pot = pot_choice+"-q"+str(q)
+                print("      POTENTIAL %s" %pot, file=outfile)
+            print("    &END", file=outfile)
     outfile.close()
     return
 
@@ -506,18 +601,24 @@ def rotate_rand(B):
     """ Make a rotated B molecule, randomly and fixed the centroid """
     """ Note: if B is very long, and the UC not cubic, strange things may happen! """
     M = copy.deepcopy(B)
+    # Translate the centroid to the origin
+    centroid_fract = np.zeros(3)
+    for k in range(3):
+        centroid_fract[k] = np.mean([ M.atom_fract[i][k] for i in range(M.natom)])
+    for i in range(M.natom):
+        for k in range(3):
+            M.atom_fract[i][j] = M.atom_fract[i][j] - centroid_fract[k]
+    """ ********* TODO : rotation *********************************** """
+    M.overwrite_xyz_from_fract(cell)
     return M
 
 def translate_rand(B,cell):
     """ Make a translated B molecule """
     M = copy.deepcopy(B)
-    centroid_fract = np.zeros(3)
-    for k in range(3):
-        centroid_fract[k] = np.mean([ M.atom_fract[i][k] for i in range(M.natom)])
     rand_transl_fract = [random.random(), random.random(), random.random()]
     for i in range(M.natom):
-        for j in range(3):
-            M.atom_fract[i][j] = M.atom_fract[i][j] - centroid_fract[j] + rand_transl_fract[j]
+        for k in range(3):
+            M.atom_fract[i][k] = M.atom_fract[i][k] + rand_transl_fract[k]
             # get in the cell if the coordinate is negative or more than unit.
             # Note: this algorithm works well for all the cases, 0<a<1, a>1 and a<0
             M.atom_fract[i][j] -= math.floor(M.atom_fract[i][j])
@@ -541,7 +642,7 @@ def has_overlap(A,B,cell,scaledrad,debug):
                               dist_fract[1] * cell.matrix[1][k] + \
                               dist_fract[2] * cell.matrix[2][k]
             mindist = math.sqrt(sum([ x**2 for x in dist_xyz ]))
-            vdwdist = scaledrad * (atomic_rad_UFF_dict[A.atom_symbol[i]] +  atomic_rad_UFF_dict[B.atom_symbol[j]])
+            vdwdist = scaledrad * (atomic_rad_UFF_dict[A.atom_type[i]] +  atomic_rad_UFF_dict[B.atom_type[j]])
             if DEBUG and mindist < mindist_store:
                 i_store = i
                 j_store = j
@@ -556,7 +657,7 @@ def has_overlap(A,B,cell,scaledrad,debug):
             break
     if DEBUG and not ovlp_found: #TODO: improve the printing
         print()
-        print(i_store),j_store)
+        print(i_store,j_store)
         print(dist_fract_store)
         print(dist_xyz_store)
         print(mindist_store)

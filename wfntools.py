@@ -7,7 +7,8 @@ from utilities import wfn, mol
 from utilities import read_wfn_file
 from utilities import combine_wfn, split_wfn, make_clean_wfn
 from utilities import write_fwfn_file, write_wfn_file
-from utilities import read_xyz_file, read_xyzlabel_file, read_cell_file
+from utilities import read_xyz_file, read_xyzlabel_file
+from utilities import read_cell_file, read_kind_file
 from utilities import write_xyz_file, write_kind_file
 from utilities import rotate_rand, translate_rand, has_overlap
 import argparse
@@ -18,7 +19,8 @@ parser = argparse.ArgumentParser(description="Program to parse and combine CP2K'
                                  formatter_class=RawTextHelpFormatter)
 
 parser.add_argument("function",
-                      choices=["parse","combine","cp","makeAB","labelAB","swapAB","check"],
+                      choices=["parse","combine","cp","makeAB","labelAB","swapAB","check",
+                                "debug_kind"],
                       help="Choose the function to execute.\n" +
                             "parse: print formatted wfn\n" +
                             "combine: combine A and B geometries and wfn\n" +
@@ -68,6 +70,12 @@ parser.add_argument("-cell","--unitcelldimensions",
                       default=None,
                       help="File containing the unit cell in CP2K format, &CELL")
 
+parser.add_argument("-kind","--kindfile",
+                      type=str,
+                      dest="kindfile",
+                      default=None,
+                      help="File containing the BS and PSEUDO in CP2K &KIND format")
+
 parser.add_argument("-o","--outfilename",
                       type=str,
                       dest="outfilename",
@@ -78,13 +86,15 @@ parser.add_argument("-bs","--basisiset",
                       type=str,
                       dest="bs",
                       default="DZVP-MOLOPT-SR-GTH",
-                      help="CP2K basis set choice for the .kind file")
+                      help="CP2K basis set choice for the .kind file.\n"+
+                           "Use 'read' if these are read with the -kind option.")
 
 parser.add_argument("-pot","--potential",
                       type=str,
                       dest="pot",
                       default="GTH-PBE",
-                      help="CP2K pseudopotential choice for the .kind file")
+                      help="CP2K pseudopotential choice for the .kind file\n"+
+                           "Use 'read' if these are read with the -kind option.")
 
 parser.add_argument("-nA","--numberofatomsinA",
                       type=int,
@@ -243,13 +253,13 @@ if args.function=="cp":
         X.compute_types()
         # Print Aa
         write_xyz_file(args.outfilename+"_Aa.xyz",A,X,label=True)
-        write_kind_file(args.outfilename+"_Aa.kind",A,X,True,False,args.bs,args.pot)
+        write_kind_file(args.outfilename+"_Aa.kind",A,X,False,False,args.bs,args.pot)
         write_wfn_file(a,args.outfilename+"_Aa.wfn")
         if args.printformatted:
             write_fwfn_file(a,args.outfilename+"_Aa.fwfn")
         # Print Bb
         write_xyz_file(args.outfilename+"_Bb.xyz",A,X,label=True)
-        write_kind_file(args.outfilename+"_Bb.kind",A,X,True,False,args.bs,args.pot)
+        write_kind_file(args.outfilename+"_Bb.kind",A,X,False,False,args.bs,args.pot)
         write_wfn_file(b,args.outfilename+"_Bb.wfn")
         if args.printformatted:
             write_fwfn_file(a,args.outfilename+"_Bb.fwfn")
@@ -346,3 +356,13 @@ if args.function=="makeAB":
                 print("TIP 2: lower -srad")
                 print("TIP 3: check if your B molecule is too big for your A framework")
                 sys.exit()
+
+if args.function == "debug_kind":
+    print("DEBUG: Reading %s geometry as A" %args.geoa)
+    A = read_xyz_file(args.geoa)
+    print("DEBUG: Reading %s kind file for A" %args.kindfile)
+    read_kind_file(args.kindfile,A,None)
+    X=mol(0)
+    X.compute_types()
+    print("DEBUG: Printing %s kind file for A, after parsing" %args.outfilename+".kind")
+    write_kind_file(args.outfilename+".kind",A,X,False,False,args.bs,args.pot)
