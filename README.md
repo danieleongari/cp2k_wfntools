@@ -14,6 +14,12 @@ Consider:
 * E=E(Aab)-E(Aa) is the difference in the energy due to a better minimization of the wave function of the fragment A when the basis set of B is added. This value should be negative.
 * Different atom types can be specified for the same element: use the convention "type = elementX" with X being a scalar. For example, in an antiferromagnetic calculation one can use Cu1 and Cu2 to specify atoms with opposite spin. It is possible to use any number (e.g., Cu10, Cu3333), but NOT letters or symbols (e.g., Cu_1, CuUP, CuSpin1, ..., are not read correctly)
 
+### Installation
+
+```
+pip install cp2k-wfntools
+```
+
 ### Examples:
 #### 1) Print the formatted wavefunction:
 ```
@@ -79,3 +85,11 @@ wfntools labelAB -AB both_fragments.xyz -nB 3 -o outputname
 wfntools swaplAB -AB both_fragments.xyz -o outputname
 ```
 Print a new `outputname_label.xyz` file where A and B are labels are swapped.
+
+### Development
+
+Set up automatic code formatting:
+```
+pip install -e .[pre-commit]
+pre-commit install
+```
