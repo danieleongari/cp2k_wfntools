@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(description="Program to parse and combine CP2K'
 
 parser.add_argument("function",
                       choices=["parse","combine","cp","makeAB","labelAB","swapAB","check",
-                                "debug_kind"],
+                                "debug_kind", "debug_split"],
                       help="Choose the function to execute.\n" +
                             "parse: print formatted wfn\n" +
                             "combine: combine A and B geometries and wfn\n" +
@@ -288,7 +288,7 @@ if args.function=="labelAB":
         sys.exit()
     # Read the number of atoms an check if everything makes sense: na+nb=nab
     inpfile = open(args.geoab,"r")
-    nab = int(inpfile.readline().split[0])
+    nab = int(inpfile.readline().split()[0])
     if args.na== None and args.nb == None:
         print("WARNING: number of atoms for A (or B) not provided! EXIT")
         sys.exit()
@@ -376,6 +376,7 @@ if args.function=="makeAB":
                 sys.exit()
 
 if args.function == "debug_kind":
+    " DEBUG utility to parse a .kind file with a geometry and print a new .kind file"
     print("DEBUG: Reading %s geometry as A" %args.geoa)
     A = read_xyz_file(args.geoa)
     print("DEBUG: Reading %s kind file for A" %args.kindfile)
@@ -384,3 +385,15 @@ if args.function == "debug_kind":
     X.compute_types()
     print("DEBUG: Printing %s kind file for A, after parsing" %args.outfilename+".kind")
     write_kind_file(args.outfilename+".kind",A,X,False,False,args.bs,args.pot)
+
+if args.function == "debug_split":
+    " DEBUG utility to read ab.wfn and AB_label.xyz and print a.wfn + b.wfn"
+    print("DEBUG: Reading %s geometry as AB" %args.geoab)
+    A, B, na, nb = read_xyzlabel_file(args.geoab)
+    print("DEBUG: Reading %s wavefunction as ab" %args.wfnab)
+    ab = read_wfn_file(args.wfnab)
+    print("DEBUG: Splitting the wfn")
+    a, b = split_wfn(ab,A,B,args.qa,args.qb,args.multa,args.multb)
+    print("DEBUG: Printing %s and %s" %(args.outfilename+"_Aa.fwfn",args.outfilename+"_Bb.fwfn"))
+    write_fwfn_file(a,args.outfilename+"_Aa.fwfn")
+    write_fwfn_file(b,args.outfilename+"_Bb.fwfn")

@@ -26,9 +26,13 @@ class wfn:
         self.nset_max = int(nset_max)     # max number of sets in the basis set (!!!! always 1???)
         self.nshell_max = int(nshell_max) # mak number of shells in each set
         #spin independent
-        self.nset = [0 for i in range(self.natom)]                                  # number of sets for the bs of each atom
-        self.nshell = [0 for i in range(self.natom)]                                # number of shells for the bs of each atom
-        self.nao = [[0 for i in range(self.nshell_max)] for j in range(self.natom)] # number of atomic orbitals for each shell of each atom
+        self.nset = [0 for i in range(self.natom)] # number of sets for the bs of each atom
+        #if self.nset_max==1:
+        #    self.nshell = [0 for i in range(self.natom)]                                # number of shells for the bs of each atom
+        #    self.nao = [[0 for i in range(self.nshell_max)] for j in range(self.natom)] # number of atomic orbitals for each shell of each atom
+        #else: # TODO: to be merged later
+        self.nshell = [[0 for i in range(self.nset_max)] for j in range(self.natom)] # number of shells for the bs of each atom
+        self.nao = [[[0 for l in range(self.nshell_max)] for i in range(self.nset_max)] for j in range(self.natom)] # number of atomic orbitals for each shell of each atom
         #spin dependent
         self.nmo = [0,0]    # number of molecular orbitals
         self.nocc = [0,0]   # number of occupied molecular orbitals
@@ -87,7 +91,7 @@ class mol:
     def compute_nel_geom(self):
         # Count the number of electrons, according to the atom types
         self.nel=0
-        for element in self.type_element:
+        for element in self.atom_element:
             self.nel += atomic_valence_default_dict[element] #TODO: user number of valence el
     def compute_fract(self, cell):
         # Given a cell, compute the fractional coordinates of the atoms
@@ -111,7 +115,6 @@ class mol:
         for val in bs, pot:
             if len(val.split("-q"))>1:
                 self.q.update({kind:int(val.split("-q")[1])})
-
 
 class cell:
     """ Unit cell object, you should specify if it is read from lengths+angles or matrix"""
@@ -177,11 +180,13 @@ def read_wfn_file(wfn_file):
         w.nset[i]=val
     nshell = inpfile.read_ints()
     for i, val in enumerate(nshell):
-        w.nshell[i]=val
+        iatom, iset = divmod(i,w.nset_max)
+        w.nshell[iatom][iset]=val
     nao = inpfile.read_ints()
     for i, val in enumerate(nao):
-        iatom, ishell = divmod(i,w.nshell_max) # this splits the atomic orbitals in one list for each atom
-        w.nao[iatom][ishell]=val
+        iatom, isetshell = divmod(i,w.nset_max*w.nshell_max)       # this splits the N of atomic orbitals in one list for each atom
+        iset, ishell = divmod(isetshell,w.nshell_max)   # this splits the N of atomic orbitals in one list for eash set
+        w.nao[iatom][iset][ishell]=val
     for ispin in range(w.nspin):
         nmo, nocc, nvirt, nel = inpfile.read_ints()
         w.nmo[ispin]=nmo
@@ -218,20 +223,30 @@ def combine_wfn(a,b):
     nset_max=max(a.nset_max,b.nset_max)
     nshell_max=max(a.nshell_max,b.nshell_max)
     w=wfn(natom,nspin,nao_tot,nset_max,nshell_max)
+    # combine and assign nset, for each atom
     nset = a.nset+b.nset
     for i, val in enumerate(nset):
         w.nset[i]=val
     nshell = a.nshell+b.nshell
-    for i, val in enumerate(nshell):
-        w.nshell[i]=val
-    #Note: if w.nshell_max>a.shell_max I need to leave some zeros
+    # combine and assign nshell, for each set, for each atom
     for iatom in range(w.natom):
         if iatom<a.natom:
-            for ishell in range(a.nshell_max):
-                w.nao[iatom][ishell]=a.nao[iatom][ishell]
+            for iset in range(a.nset_max):
+                w.nshell[iatom][iset]=a.nshell[iatom][iset]
         else:
-            for ishell in range(b.nshell_max):
-                w.nao[iatom][ishell]=b.nao[iatom-a.natom][ishell]
+            for iset in range(b.nset_max):
+                w.nshell[iatom][iset]=b.nshell[iatom-a.natom][iset]
+    # combine and assign nao, for each shell, for each set, for each atom
+    for iatom in range(w.natom):
+        if iatom<a.natom:
+            for iset in range(a.nset_max):
+                for ishell in range(a.nshell_max):
+                    w.nao[iatom][iset][ishell]=a.nao[iatom][iset][ishell]
+        else:
+            for iset in range(b.nset_max):
+                for ishell in range(b.nshell_max):
+                    w.nao[iatom][iset][ishell]=b.nao[iatom-a.natom][iset][ishell]
+    # work with spin dependent properties
     if a.nspin==1 and w.nspin==2: a=makeopenshell(a)
     if b.nspin==1 and w.nspin==2: b=makeopenshell(b)
     for ispin in range(w.nspin):
@@ -261,18 +276,16 @@ def split_wfn(ab,A,B,a_charge,b_charge,a_mult,b_mult):
         print("WARNING: in split_wfn the atoms in ab (from the wfn file)" +
               " are not the sum of A and B (from the geometry file)! EXIT")
         sys.exit()
-    if ab.nset_max>1:
-        print("PROGRAM WARNING: I still don't know how to work" +
-              " with multiple nset_max > 1! CONTACT THE AUTHORS! EXIT")
-        sys.exit()
     # Count the number of atomic orbitals for A and B and initialize the a and b wfns
     a_nao_tot=0
     b_nao_tot=0
     for i in range(nab):
         if i < na:
-            a_nao_tot+=sum(ab.nao[i])
+            for j in range(ab.nset_max):
+                a_nao_tot+=sum(ab.nao[i][j])
         else:
-            b_nao_tot+=sum(ab.nao[i])
+            for j in range(ab.nset_max):
+                b_nao_tot+=sum(ab.nao[i][j])
     #Note1: for semplicity I keep the same n_shell max even if the single wfn has less
     #Note2: if nspin=2 you want to keep uks for both in the CP calculation
     a=wfn(na,ab.nspin,a_nao_tot,ab.nset_max,ab.nshell_max)
@@ -320,7 +333,7 @@ def write_wfn_file(wfn_object,wfn_file):
     outfile.write_record(np.array([w.natom, w.nspin, w.nao_tot, w.nset_max, w.nshell_max], dtype=np.int32))
     outfile.write_record(np.array(w.nset, dtype=np.int32))
     outfile.write_record(np.array(w.nshell, dtype=np.int32))
-    outfile.write_record(np.array(np.concatenate(w.nao), dtype=np.int32))
+    outfile.write_record(np.array(w.nao, dtype=np.int32))
     for ispin in range(w.nspin):
         outfile.write_record(np.array([w.nmo[ispin], w.nocc[ispin], w.nvirt[ispin], w.nel[ispin]], dtype=np.int32))
         outfile.write_record(np.array(np.concatenate([w.eigen[ispin],w.occup[ispin]]), dtype=np.dtype("f8")))
@@ -338,20 +351,26 @@ def write_fwfn_file(wfn_object,fwfn_file):
     print("Total number of atomic orbitals (AOs): %d" %w.nao_tot, file=outfile)
     print("Maximum number of sets: %d" %w.nset_max, file=outfile)
     print("Maximum number of shells: %d" %w.nshell_max, file=outfile)
-    print("Number of sets for each atom: [", end="", file=outfile)
+    print("Number of sets for each atom:", end="", file=outfile)
     for val in w.nset:
         print(" %d" %val, end="",file=outfile)
-    print(" ]",file=outfile)
-    print("Number of shells for each atom: [", end="", file=outfile)
-    for val in w.nshell:
-        print(" %d" %val, end="",file=outfile)
-    print(" ]",file=outfile)
-    print("Number of atomic orbitals for each shell for each atom:", file=outfile)
+    print("",file=outfile)
+    print("Number of shells for each [atom] and set: ", end="", file=outfile)
+    for iset in range(len(w.nshell)):
+        print("[ ",end="",file=outfile)
+        for val in w.nshell[iset]:
+            print("%d " %val, end="",file=outfile)
+        print("] ",end="",file=outfile)
+    print("",file=outfile)
+    print("Number of atomic orbitals for each atom, [set] and shell:", file=outfile)
     for i, list in enumerate(w.nao):
-        print("atom %d:\t[" %i, end="", file=outfile)
-        for j in list:
-            print(" %d" %j, end="",file=outfile)
-        print(" ]",file=outfile)
+        print("atom %d:\t" %i, end="", file=outfile)
+        for iset in range(len(list)):
+            print("[ ",end="",file=outfile)
+            for val in list[iset]:
+                print("%d " %val, end="",file=outfile)
+            print("] ",end="",file=outfile)
+        print("",file=outfile)
     for ispin in range(w.nspin):
         print("", file=outfile)
         print("Information for spin %d:" %ispin, file=outfile)
@@ -399,12 +418,12 @@ def makeopenshell(v):
 def read_xyz_file(xyz_file):
     """ Read an .xyz file, containing only one fragment. Neglect _A and _B labels if present """
     inpfile = open(xyz_file,"r")
-    data = inpfile.readline().split()
+    data = advreadline(inpfile)
     natom = int(data[0])
     M = mol(natom)
-    junk = inpfile.readline()
+    junk = advreadline(inpfile)
     for i in range(natom):
-        data = inpfile.readline().split()
+        data = advreadline(inpfile)
         if data[0][-2:]=="_A" or data[0][-2:]=="_B":
             M.atom_type[i]=data[0][:-2]
         else:
@@ -420,12 +439,12 @@ def read_xyzlabel_file(xyz_file):
     """ Read an .xyz labelled file containing both A and B fragments """
     """ NB: it does not matter the order of A and B in the file """
     inpfile = open(xyz_file,"r")
-    nab = int(inpfile.readline().split()[0])
-    junk = inpfile.readline()
+    nab = int(advreadline(inpfile)[0])
+    junk = advreadline(inpfile)
     na=0
     nb=0
     for f in range(nab):
-        atom_label = inpfile.readline().split()[0][-2:]
+        atom_label = advreadline(inpfile)[0][-2:]
         if atom_label == "_A":
             na+=1
         elif  atom_label == "_B":
@@ -438,8 +457,8 @@ def read_xyzlabel_file(xyz_file):
         sys.exit()
     inpfile.close() #TODO: use rewind
     inpfile = open(xyz_file,"r")
-    junk = inpfile.readline()
-    junk = inpfile.readline()
+    junk = advreadline(inpfile)
+    junk = advreadline(inpfile)
     outfileA = open("tmp_A.xyz","w")
     outfileB = open("tmp_B.xyz","w")
     print(na, file=outfileA)
@@ -489,7 +508,7 @@ def read_cell_file(cell_file):
     nlines = sum(1 for line in open(cell_file))
     inpfile = open(cell_file,"r")
     for l in range(nlines):
-        data = inpfile.readline().split()
+        data = advreadline(inpfile)
         if len(data)>=4 and data[0]=="A":
             c.from_matrix = True
             if data[1][0]=="[":

@@ -1,0 +1,24 @@
+Number of atoms: 3
+Number of spin: 1
+Total number of atomic orbitals (AOs): 23
+Maximum number of sets: 1
+Maximum number of shells: 5
+Number of sets for each atom: 1 1 1
+Number of shells for each atom: [ 5 3 3 ]
+Number of atomic orbitals for each shell for each atom:
+atom 0:	[ 1 1 3 3 5 ]
+atom 1:	[ 1 1 3 0 0 ]
+atom 2:	[ 1 1 3 0 0 ]
+
+Information for spin 0:
+Number of molecular orbitals (MOs): 4
+Number of occupied MOs: 4
+Number of virtual MOs: 5
+Number of electrons: 8
+Eigenvalue for each MO: [ 0.000 0.000 0.000 0.000 ]
+Electron occupancy for each MO: [ 2.000 2.000 2.000 2.000 ]
+Coefficients for the MO/AO matrix:
+MO 0:	[ +0.749 +0.138 -0.058 -0.063 -0.207 -0.023 -0.024 -0.053 -0.009 +0.003 -0.005 -0.001 -0.008 +0.211 -0.004 +0.002 -0.051 -0.003 +0.245 -0.005 -0.024 +0.029 -0.038 ]
+MO 1:	[ -0.075 +0.001 -0.277 +0.619 -0.288 -0.021 +0.074 -0.028 -0.015 +0.006 +0.027 +0.021 -0.007 -0.350 +0.005 +0.012 +0.025 +0.023 +0.365 -0.005 -0.009 -0.002 -0.027 ]
+MO 2:	[ +0.337 -0.055 -0.422 +0.175 +0.728 +0.013 +0.004 -0.003 -0.001 -0.004 -0.004 +0.014 +0.022 -0.139 +0.001 +0.030 +0.007 -0.044 -0.126 +0.000 +0.037 -0.017 -0.036 ]
+MO 3:	[ +0.316 -0.065 +0.742 +0.393 +0.174 -0.011 +0.009 +0.008 +0.020 +0.013 +0.002 +0.013 -0.002 -0.189 +0.001 -0.051 +0.001 -0.004 -0.115 +0.000 -0.044 -0.030 +0.003 ]
