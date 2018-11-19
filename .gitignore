@@ -1,2 +1,4 @@
 *.pyc
 test/output/*
+*.swp
+*.egg-info/
