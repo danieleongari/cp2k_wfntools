@@ -212,7 +212,8 @@ parser.add_argument(
     dest="maxfail",
     default=100,
     help=
-    "When using makeAB, the program is stopped after maxfail overlapping configurations"
+    "When using makeAB, the program is stopped after maxfail \
+    overlapping configurations"
 )
 
 parser.add_argument(
@@ -222,7 +223,8 @@ parser.add_argument(
     dest="srad",
     default=1.0,
     help=
-    "When using makeAB, scaling factor for the atomic radii, to evaluate the overlap"
+    "When using makeAB, scaling factor for the atomic radii, \
+    to evaluate the overlap"
 )
 
 parser.add_argument(
@@ -366,7 +368,8 @@ if args.function == "labelAB":
     if args.na is not None and args.nb is not None:
         if nab != (args.na + args.nb):
             print(
-                "WARNING: number of atoms for A and B both specified, but they don't match with nAB! EXIT"
+                "WARNING: number of atoms for A and B both specified, \
+                but they don't match with nAB! EXIT"
             )
             sys.exit()
     if args.na is None:
@@ -453,13 +456,13 @@ if args.function == "makeAB":
                 print("WARNING: -maxfail threshold reached. EXIT")
                 print("TIP 1: increase -maxfail")
                 print("TIP 2: lower -srad")
-                print(
-                    "TIP 3: check if your B molecule is too big for your A framework"
-                )
+                print("TIP 3: check if your B molecule is too big \
+                      for your A framework")
                 sys.exit()
 
 if args.function == "debug_kind":
-    """ DEBUG utility to parse a .kind file with a geometry and print a new .kind file"""
+    """ DEBUG utility to parse a .kind file with a geometry
+    and print a new .kind file"""
     print("DEBUG: Reading %s geometry as A" % args.geoa)
     A = read_xyz_file(args.geoa)
     print("DEBUG: Reading %s kind file for A" % args.kindfile)

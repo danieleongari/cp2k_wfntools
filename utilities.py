@@ -30,26 +30,17 @@ class wfn(object):
         #defined at the initialization
         self.natom = int(natom)  # number of atoms
         self.nspin = int(nspin)  # number of spin (i.e., 1 or 2)
-        self.nao_tot = int(
-            nao_tot)  # total number of atomic orbitals (=sum(self.nao))
-        self.nset_max = int(
-            nset_max)  # max number of sets in the basis set (!!!! always 1???)
+        self.nao_tot = int(nao_tot)  # total number of atomic orbitals
+        self.nset_max = int(nset_max)  # max number of sets of bs
         self.nshell_max = int(nshell_max)  # mak number of shells in each set
-        #spin independent
-        self.nset = [0 for _i in range(self.natom)
-                     ]  # number of sets for the bs of each atom
-        #if self.nset_max==1:
-        #    self.nshell = [0 for i in range(self.natom)]                                # number of shells for the bs of each atom
-        #    self.nao = [[0 for i in range(self.nshell_max)] for j in range(self.natom)] # number of atomic orbitals for each shell of each atom
-        #else: # TODO: to be merged later
-        self.nshell = [
-            [0 for _i in range(self.nset_max)] for _j in range(self.natom)
-        ]  # number of shells for the bs of each atom
+        #spin independent properties
+        self.nset = [0 for _i in range(self.natom)]
+        self.nshell = [[0 for _i in range(self.nset_max)]
+                       for _j in range(self.natom)]
         self.nao = [[[0 for _l in range(self.nshell_max)]
                      for _i in range(self.nset_max)]
-                    for _j in range(self.natom)
-                    ]  # number of atomic orbitals for each shell of each atom
-        #spin dependent
+                    for _j in range(self.natom)]
+        #spin dependent properties
         self.nmo = [0, 0]  # number of molecular orbitals
         self.nocc = [0, 0]  # number of occupied molecular orbitals
         self.nvirt = [0, 0]  # number of virtual molecular orbitals
@@ -58,18 +49,37 @@ class wfn(object):
     def initialize_lists(self, ispin):
         # Initialize (or reset to zero) alpha or beta molecular orbitals
         if ispin == 0:
-            self.eigen = [[0 for _i in range(self.nmo[ispin])]
-                          ]  # eigenvalues for each molecular orbital
-            self.occup = [[0 for _i in range(self.nmo[ispin])]
-                          ]  # occupancies for each molecular orbital
+            # eigenvalues for each molecular orbital
+            self.eigen = [[0 for _i in range(self.nmo[ispin])]]
+            # occupancies for each molecular orbital
+            self.occup = [[0 for _i in range(self.nmo[ispin])]]
+            #coefficient list for each moleculat orbital
             self.coeff = [[[0 for _j in range(self.nao_tot)]
-                           for _i in range(self.nmo[ispin])]
-                          ]  #coefficient list for each moleculat orbital
+                           for _i in range(self.nmo[ispin])]]
         elif ispin == 1:
             self.eigen.append([0 for _i in range(self.nmo[ispin])])
             self.occup.append([0 for _i in range(self.nmo[ispin])])
             self.coeff.append([[0 for _j in range(self.nao_tot)]
                                for _i in range(self.nmo[ispin])])
+
+    def makeopenshell(self):
+        # Makes a restricted (e.g., nspin=1) wfn open shell (e.g., nspin=2)
+        if self.nspin == 2:
+            return
+        elif self.nspin == 1:
+            self.nspin = 2
+            self.nel[0] /= 2
+            self.eigen[0] = [x / 2. for x in self.eigen[0]]
+            self.occup[0] = [x / 2. for x in self.occup[0]]
+            self.nmo[1] = self.nmo[0]
+            self.nocc[1] = self.nocc[0]
+            self.nvirt[1] = self.nvirt[0]
+            self.nel[1] = self.nel[0]
+            self.initialize_lists(1)
+            self.eigen[1] = self.eigen[0]
+            self.occup[1] = self.occup[0]
+            self.coeff[1] = self.coeff[0]
+            return
 
     def add_nel(self, nel_geom, charge,
                 multiplicity):  #default: charge=0, mult=1
@@ -89,9 +99,8 @@ class wfn(object):
                 sys.exit()
         elif self.nspin == 2:
             if (nel_geom - self.charge % 2 == 1) and (self.mult % 2 == 1):
-                print(
-                    "WARNING: both number of electrons and multiplicity are odd! EXIT"
-                )
+                print("WARNING: both number of electrons and multiplicity \
+                       are odd! EXIT")
             self.nel[0] = int((nel_geom - self.charge) / 2 +
                               (self.mult - 1) / 2)
             self.nel[1] = int((nel_geom - self.charge) / 2 -
@@ -104,24 +113,21 @@ class mol(object):
     def __init__(self, natom=None):
         # Initialize the molecule, known the number of atoms
         self.natom = natom  # number of atoms
-        self.atom_type = [None for _i in range(self.natom)
-                          ]  # atomic type: e.g., Cu1
+        self.atom_type = [None for _i in range(self.natom)] #e.g., Cu1
         self.atom_xyz = [[None for _j in range(3)]
                          for _i in range(self.natom)]  # cartesian coordinates
 
     def compute_types(self):
-        # Count and list the atom types: extract the element name if type = elementXX (with xx being a number)
-        self.atom_element = [extract_element(x) for x in self.atom_type
-                             ]  # atomic element: e.g., Cu
+        # Count and list the atom types:
+        #extract the element name if type = elementXX (with xx being a number)
+        self.atom_element = [extract_element(x)
+                            for x in self.atom_type] # atomic element: e.g., Cu
         self.ntype = len(set(self.atom_type))  # number of different atom types
         self.type_symbol = list(set(self.atom_type))  # list of types
         self.type_element = {}
         for x in self.type_symbol:
-            self.type_element.update({
-                x: extract_element(x)
-            })  # list of elements for each type
-        self.type_count = Counter(
-            self.atom_type)  # count of atoms for each type
+            self.type_element.update({x: extract_element(x)})  # type : element
+        self.type_count = Counter(self.atom_type)  # count of atom types
         self.bs = {}  # gaussian basis set
         self.pot = {}  # pseudopotential
         self.q = {}  # valence electrons
@@ -160,7 +166,8 @@ class mol(object):
 
 
 class cell(object):
-    """ Unit cell object, you should specify if it is read from lengths+angles or matrix"""
+    """ Unit cell object, you should specify if it is read
+    from lengths+angles or matrix"""
 
     def __init__(self):
         self.from_lengths_angles = False
@@ -221,7 +228,8 @@ class cell(object):
 
 
 def extract_element(element_type):
-    """ Clear numberical values at the end of a string, for each string in a list """
+    """ Clear numberical values at the end of a string,
+    for each string in a list """
     for x in element_type[::-1]:  # Reverse string
         if x.isnumeric():
             element_type = element_type[:-1]
@@ -298,26 +306,19 @@ def combine_wfn(a, b):  # noqa: MC0001
     nshell_max = max(a.nshell_max, b.nshell_max)
     w = wfn(natom, nspin, nao_tot, nset_max, nshell_max)
     # combine and assign nset, for each atom
-    nset = a.nset + b.nset
-    for i, val in enumerate(nset):
-        w.nset[i] = val
-    nshell = a.nshell + b.nshell
-    # combine and assign nshell, for each set, for each atom
+    #                    nshell, for each set, for each atom
+    #                    nao, for each shell, for each set, for each atom
     for iatom in range(w.natom):
         if iatom < a.natom:
+            w.nset[iatom] = a.nset[iatom]
             for iset in range(a.nset_max):
                 w.nshell[iatom][iset] = a.nshell[iatom][iset]
+                for ishell in range(a.nshell_max):
+                     w.nao[iatom][iset][ishell] = a.nao[iatom][iset][ishell]
         else:
+            w.nset[iatom] = b.nshell[iatom - a.natom]
             for iset in range(b.nset_max):
                 w.nshell[iatom][iset] = b.nshell[iatom - a.natom][iset]
-    # combine and assign nao, for each shell, for each set, for each atom
-    for iatom in range(w.natom):
-        if iatom < a.natom:
-            for iset in range(a.nset_max):
-                for ishell in range(a.nshell_max):
-                    w.nao[iatom][iset][ishell] = a.nao[iatom][iset][ishell]
-        else:
-            for iset in range(b.nset_max):
                 for ishell in range(b.nshell_max):
                     w.nao[iatom][iset][ishell] = b.nao[iatom -
                                                        a.natom][iset][ishell]
@@ -354,7 +355,8 @@ def split_wfn(ab, A, B, a_charge, b_charge, a_mult, b_mult):  # noqa: MC0001
         print("WARNING: in split_wfn the atoms in ab (from the wfn file)" +
               " are not the sum of A and B (from the geometry file)! EXIT")
         sys.exit()
-    # Count the number of atomic orbitals for A and B and initialize the a and b wfns
+    # Count the number of atomic orbitals for A and B
+    # and initialize the a and b wfns
     a_nao_tot = 0
     b_nao_tot = 0
     for i in range(nab):
@@ -364,8 +366,9 @@ def split_wfn(ab, A, B, a_charge, b_charge, a_mult, b_mult):  # noqa: MC0001
         else:
             for j in range(ab.nset_max):
                 b_nao_tot += sum(ab.nao[i][j])
-    #Note1: for semplicity I keep the same n_shell max even if the single wfn has less
-    #Note2: if nspin=2 you want to keep uks for both in the CP calculation
+    #Note1: for semplicity I keep the same n_shell max
+    #       even if the single wfn has less
+    #Note2: if nspin=2 you want to keep UKS for both in the CP calculation
     a = wfn(na, ab.nspin, a_nao_tot, ab.nset_max, ab.nshell_max)
     b = wfn(nb, ab.nspin, b_nao_tot, ab.nset_max, ab.nshell_max)
     for i in range(nab):
@@ -491,29 +494,9 @@ def write_fwfn_file(wfn_object, fwfn_file):
     return
 
 
-def makeopenshell(v):
-    """ Makes a restricted (e.g., nspin=1) wfn open shell (e.g., nspin=2) """
-    if v.nspin == 2:
-        return v
-    elif v.nspin == 1:
-        w = wfn(v.natom, 2, v.nao_tot, v.nset_max, v.nshell_max)
-        w.nset = v.nset
-        w.nshell = v.nshell
-        w.nao = v.nao
-        for ispin in range(2):
-            w.nmo[ispin] = v.nmo[0]
-            w.nocc[ispin] = v.nocc[0]
-            w.nvirt[ispin] = v.nvirt[0]
-            w.nel[ispin] = v.nel[0] / 2
-            w.initialize_lists(ispin)
-            w.eigen[ispin] = [x / 2. for x in v.eigen[0]]
-            w.occup[ispin] = [x / 2. for x in v.occup[0]]
-            w.coeff[ispin] = v.coeff[0]
-        return w
-
-
 def read_xyz_file(xyz_file):
-    """ Read an .xyz file, containing only one fragment. Neglect _A and _B labels if present """
+    """ Read an .xyz file, containing only one fragment.
+    Neglect _A and _B labels if present """
     inpfile = open(xyz_file, "r")
     data = advreadline(inpfile)
     natom = int(data[0])
@@ -549,8 +532,8 @@ def read_xyzlabel_file(xyz_file):
             nb += 1
         else:
             print(
-                "WARNING: AB.xyz does not contain labels. Use labelAB first! EXIT"
-            )
+                "WARNING: AB.xyz does not contain labels. \
+                Use labelAB first! EXIT")
             sys.exit()
     if not nab == (na + nb):
         print("WARNING: the count of A and B atoms in AB.xyz is weird! EXIT")
@@ -581,7 +564,8 @@ def read_xyzlabel_file(xyz_file):
 
 
 def write_xyz_file(xyz_file, A, B, label):
-    """ Write .xyz file, given two fragments. With label True prints 'Cu1_A', with False 'Cu' """
+    """ Write .xyz file, given two fragments. With label True prints 'Cu1_A',
+    with False 'Cu' """
     outfile = open(xyz_file, "w")
     print("%d" % (A.natom + B.natom), file=outfile)
     print("Printed using cp2k_wfntool", file=outfile)
@@ -606,7 +590,7 @@ def write_xyz_file(xyz_file, A, B, label):
 def read_cell_file(cell_file):
     """ Read the &CELL section in CP2K format.
 
-    TODO: this function can be more and more flexible in the parsing 
+    TODO: this function can be more and more flexible in the parsing
     """
     c = cell()
     nlines = sum(1 for line in open(cell_file))
@@ -646,8 +630,8 @@ def read_cell_file(cell_file):
 
 def read_kind_file(kind_file, A, B):  # noqa: MC0001
     """ Read CP2K's &KIND section.
-
-    Use A or B = None to use only one fragment, so that labels are not needed """
+    Notte: use A or B = None to use only one fragment,
+    so that labels are not needed """
     inpfile = open(kind_file, "r")
     data = None
     while data != "EoF":
@@ -678,7 +662,8 @@ def read_kind_file(kind_file, A, B):  # noqa: MC0001
                     pot = data[1]
                 if len(data) >= 1 and data[0] == "GHOST":
                     print(
-                        "WARNING: reading .kind and not expecting a GHOST here! EXIT"
+                        "WARNING: reading .kind and not expecting \
+                        a GHOST here! EXIT"
                     )
                     sys.exit()
             if kind_in_mol:
@@ -688,8 +673,8 @@ def read_kind_file(kind_file, A, B):  # noqa: MC0001
         if M is not None:
             if len(M.bs) != M.ntype:
                 print(
-                    "WARNING: the basis set is read from a kind file, but has a different number of types!"
-                )
+                    "WARNING: the basis set is read from a kind file, \
+                    but has a different number of types!")
     return
 
 
@@ -732,7 +717,7 @@ def write_kind_file(kind_file, A, B, A_is_ghost, B_is_ghost, bs_choice,
 def rotate_rand(B):
     """ Make a rotated B molecule, randomly and fixed the centroid
 
-    Note: if B is very long, and the UC not cubic, strange things may happen! 
+    Note: if B is very long, and the UC not cubic, strange things may happen!
     """
     M = copy.deepcopy(B)
     # Translate the centroid to the origin
@@ -742,7 +727,7 @@ def rotate_rand(B):
             [M.atom_fract[i][k] for i in range(M.natom)])
     for i in range(M.natom):
         for k in range(3):
-            M.atom_fract[i][j] = M.atom_fract[i][j] - centroid_fract[k]
+            M.atom_fract[i][k] = M.atom_fract[i][k] - centroid_fract[k]
     # ********* TODO : rotation ***********************************
     M.overwrite_xyz_from_fract(cell)
     return M
@@ -757,7 +742,7 @@ def translate_rand(B, cell):
             M.atom_fract[i][k] = M.atom_fract[i][k] + rand_transl_fract[k]
             # get in the cell if the coordinate is negative or more than unit.
             # Note: this algorithm works well for all the cases, 0<a<1, a>1 and a<0
-            M.atom_fract[i][j] -= math.floor(M.atom_fract[i][j])
+            M.atom_fract[i][k] -= math.floor(M.atom_fract[i][k])
     M.overwrite_xyz_from_fract(cell)
     return M
 
