@@ -2,5 +2,6 @@
 test/output/*
 *.swp
 *.egg-info/
+*.DS_Store
 build/
 dist/

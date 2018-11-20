@@ -9,7 +9,7 @@ from argparse import RawTextHelpFormatter  #needed to go next line in the help t
 from six.moves import range
 #from pprint import pprint  #for debug: prints all the attributs of an obj: pprint(vars(your_object))
 
-from atomic_data import atomic_symbol
+from atomic_data import atomic_symbols
 from utilities import mol
 from utilities import read_wfn_file
 from utilities import combine_wfn, split_wfn, make_clean_wfn

@@ -12,63 +12,112 @@ import filecmp #to compare two files
 shutil.rmtree("./output")
 os.makedirs("./output")
 
-######################################################################## Test 01
-print("Test 01: parse wfn")
-cmd = ["../wfntools.py",
-       "parse",
-       "-a",
-       "./input/water2_ANO+MOLOPT.wfn",
-       "-o",
-       "./output/test01",
-       ]
-process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-output, error = process.communicate()
+#################################### Specify test parameters and expected output
+test_title = ["(water) parse wfn",
+              "(water) combine wfn",
+              "(water) label _A and _B",
+              "(CuOH+OH) CounterPoise correction",
+              ]
 
-expected_files=["test01.fwfn"
-                ]
-for f in expected_files:
-    if os.path.exists("./output/"+f) \
-       and filecmp.cmp("./output/"+f, "./reference/"+f):
-        print("\tOutput file %s: OK" %f )
-    else:
-        print("\tOutput file %s: MISSING or DIFFERENT" %f )
+test_cmd = [["parse",
+             "-a",
+             "./input/water2_ANO+MOLOPT.wfn",
+             "-o",
+             "./output/test01",
+             ],
+             ["combine",
+              "-a",
+              "./input/water_DZ-ANO-ALL.wfn",
+              "-b",
+              "./input/water_DZVP-MOLOPT-SR.wfn",
+              "-A",
+              "./input/water_A.xyz",
+              "-B",
+              "./input/water_B.xyz",
+              "-kindA",
+              "./input/water_A.kind",
+              "-kindB",
+              "./input/water_B.kind",
+              "-bs",
+              "read",
+              "-pot",
+              "read",
+              "-o",
+              "./output/test02",
+              "-pf",
+              ],
+              ["labelAB",
+               "-AB",
+               "./input/water2.xyz",
+               "-nA",
+               "3",
+               "-o",
+               "./output/test03",
+               ],
+              ["cp",
+               "-ab",
+               "./input/CuOHOH.wfn",
+               "-AB",
+               "./input/CuOH+OH_label.xyz",
+               "-qA",
+               "+1",
+               "-qB",
+               "-1",
+               "-multA",
+               "2",
+               "-o",
+               "./output/test04",
+               "-sbs",
+               "-pf",
+               ],
+             ]
 
-######################################################################## Test 02
-print("Test 02: combine wfn")
-cmd = ["../wfntools.py",
-       "combine",
-       "-a",
-       "./input/water_DZ-ANO-ALL.wfn",
-       "-b",
-       "./input/water_DZVP-MOLOPT-SR.wfn",
-       "-A",
-       "./input/water_A.xyz",
-       "-B",
-       "./input/water_B.xyz",
-       "-kindA",
-       "./input/water_A.kind",
-       "-kindB",
-       "./input/water_B.kind",
-       "-bs",
-       "read",
-       "-pot",
-       "read",
-       "-o",
-       "./output/test02",
-       "-pf",
-       ]
-process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-output, error = process.communicate()
+test_expected_files=[["test01.fwfn"
+                     ],
+                     ["test02.fwfn",
+                      "test02.kind", #can have a different order
+                      "test02_label.xyz",
+                      "test02_nolabel.xyz",
+                      "test02.wfn",
+                      ],
+                      ["test03_label.xyz",
+                      ],
+                      ["test04_Aa.wfn",
+                       "test04_Bb.wfn",
+                       "test04_Aab.wfn",
+                       "test04_Bab.wfn",
+                       "test04_Aa.fwfn",
+                       "test04_Bb.fwfn",
+                       "test04_Aab.fwfn",
+                       "test04_Bab.fwfn",
+                       "test04_Aa.xyz",
+                       "test04_Bb.xyz",
+                       "test04_Aab.xyz",
+                       "test04_Bab.xyz",
+                       "test04_Aa.kind",
+                       "test04_Bb.kind",
+                       "test04_Aab.kind",
+                       "test04_Bab.kind",
+                       ],
+                     ]
 
-expected_files=["test02.fwfn",
-                "test02.kind", #can have a different order
-                "test02_label.xyz",
-                "test02_nolabel.xyz",
-                "test02.wfn",
-                ]
-for f in expected_files:
-    if os.path.exists("./output/"+f) \
-       and filecmp.cmp("./output/"+f, "./reference/"+f):
-        print("\tOutput file %s: OK" %f )
-    else:
-        print("\tOutput file %s: MISSING or DIFFERENT" %f )
+###################################################################### Run Tests
+tests_passed = True
+for i in range(len(test_title)):
+    print("Test %02d: %s" %(i+1,test_title[i]))
+    cmd = ["../wfntools.py"] + test_cmd[i]
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    for f in test_expected_files[i]:
+        if not os.path.exists("./output/"+f):
+            print("\tOutput file %s: MISSING" %f)
+            tests_passed = False
+        elif not filecmp.cmp("./output/"+f, "./reference/"+f):
+            print("\tOutput file %s: DIFFERENT" %f)
+            if not f[-4:] == "kind": # .kind can have a different order of types
+                tests_passed = False
+        else:
+            print("\tOutput file %s: OK" %f )
+
+print()
+print("Tests passed? %r" %tests_passed)

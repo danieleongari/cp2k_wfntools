@@ -9,6 +9,7 @@ import numpy as np
 from numpy.linalg import inv  #to obtain the inverse of a cell
 import random
 import copy  #make duplicate of a class with copy.deepcopy(class)
+from atomic_data import atomic_symbols
 from atomic_data import atomic_valence_default_dict
 from atomic_data import atomic_rad_UFF_dict
 from collections import Counter  # to count the atom types
@@ -316,7 +317,7 @@ def combine_wfn(a, b):  # noqa: MC0001
                 for ishell in range(a.nshell_max):
                      w.nao[iatom][iset][ishell] = a.nao[iatom][iset][ishell]
         else:
-            w.nset[iatom] = b.nshell[iatom - a.natom]
+            w.nset[iatom] = b.nset[iatom - a.natom]
             for iset in range(b.nset_max):
                 w.nshell[iatom][iset] = b.nshell[iatom - a.natom][iset]
                 for ishell in range(b.nshell_max):
@@ -413,9 +414,9 @@ def write_wfn_file(wfn_object, wfn_file):
     """ Print a wfn object as a binary fortran file """
     outfile = scipy.io.FortranFile(wfn_file, "w")
     w = wfn_object
-    outfile.write_record(
-        np.array([w.natom, w.nspin, w.nao_tot, w.nset_max, w.nshell_max],
-                 dtype=np.int32))
+    outfile.write_record(np.array([w.natom, w.nspin, w.nao_tot,
+                                   w.nset_max, w.nshell_max],
+                                   dtype=np.int32))
     outfile.write_record(np.array(w.nset, dtype=np.int32))
     outfile.write_record(np.array(w.nshell, dtype=np.int32))
     outfile.write_record(np.array(w.nao, dtype=np.int32))
