@@ -42,7 +42,8 @@ wfntools combine -a fragmentA.wfn -b fragmentB.wfn -A fragmentA.xyz -B fragmentB
 * Prints the combined `outputname_label.xyz` of the two fragments, to be used for CP2K with "A" and "B" labels for the atoms.
 * Prints the combined `outputname.kind` h the CP2K's &KIND section. Use `-bs` and `-pot` options to specify the basis set and the pseudopotential choice 
 Advanced options:
-* Use `-akind` and `-bkind` to specify the kind atom to read, and then use `-bs read` and `-pot read` to print the read values 
+* Use `-kindA` and `-kindB` to specify the kind atom to read, and then use `-bs read` and `-pot read` to print the read values
+
 TODO: use the `-check` keyword to check if the number of atoms are consistent in the geometry and wfn files.
 
 #### 4) Prepare the inputs for a Counterpoise Corrected calculation (recycling the wavefunctions)
@@ -54,11 +55,13 @@ wfntools cp -ab bothfragments.wfn -AB bothfragments_label.xyz -o outputname
 and, if `-sbs` option is used:
 * Prints outputname_Aa.wfn and outputname_Aa.kind
 * Prints outputname_Bb.wfn and outputname_Bb.kind
+
 **NB: if the ab.wfn was not computed with labelled geometry, the method does not work, because the atomic &KIND are mixed!**
+
 Advanced options:
 * `-qA` and `-qB` to specify the charge of the fragments (default: 0)
 * `multA` and `multB` to specify the multiplicity of the fragments (default: 1)
-* `-abkind` to specify the kind atom to read, and then use `-bs read` and `-pot read` to print the read values
+* `-kindAB` to specify the kind atom to read, and then use `-bs read` and `-pot read` to print the read values
 
 ### Utilities:
 
