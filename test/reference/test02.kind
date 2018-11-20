@@ -1,0 +1,20 @@
+    &KIND O_A
+      ELEMENT O
+      BASIS_SET DZ-ANO-q6
+      POTENTIAL ALL-q6
+    &END
+    &KIND H_A
+      ELEMENT H
+      BASIS_SET DZ-ANO-q1
+      POTENTIAL ALL-q1
+    &END
+    &KIND O_B
+      ELEMENT O
+      BASIS_SET DZVP-MOLOPT-SR-GTH-q6
+      POTENTIAL GTH-PBE-q6
+    &END
+    &KIND H_B
+      ELEMENT H
+      BASIS_SET DZVP-MOLOPT-SR-GTH-q1
+      POTENTIAL GTH-PBE-q1
+    &END

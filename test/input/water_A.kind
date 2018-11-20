@@ -1,0 +1,10 @@
+    &KIND H
+      ELEMENT H
+      BASIS_SET DZ-ANO
+      POTENTIAL ALL
+    &END
+    &KIND O
+      ELEMENT O
+      BASIS_SET DZ-ANO
+      POTENTIAL ALL
+    &END

@@ -578,7 +578,7 @@ def read_kind_file(kind_file,A,B):
     # Final check
     for M in A,B:
         if M != None:
-            if len(A.bs) != A.ntype:
+            if len(M.bs) != M.ntype:
                 print("WARNING: the basis set is read from a kind file, but has a different number of types!")
     return
 

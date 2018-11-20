@@ -64,19 +64,19 @@ parser.add_argument("-AB","--geoab",
                       default=None,
                       help="Geometry of both fragments together (NB: should contain labels!)")
 
-parser.add_argument("-akind","--kindfileA",
+parser.add_argument("-kindA","--kindfileA",
                       type=str,
                       dest="kindfilea",
                       default=None,
                       help="File containing the BS and PSEUDO in CP2K &KIND format, for fragment A")
 
-parser.add_argument("-bkind","--kindfileB",
+parser.add_argument("-kindB","--kindfileB",
                       type=str,
                       dest="kindfileb",
                       default=None,
                       help="File containing the BS and PSEUDO in CP2K &KIND format, for fragment B")
 
-parser.add_argument("-abkind","--kindfileAB",
+parser.add_argument("-kindAB","--kindfileAB",
                       type=str,
                       dest="kindfileab",
                       default=None,
