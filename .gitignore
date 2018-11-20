@@ -2,3 +2,5 @@
 test/output/*
 *.swp
 *.egg-info/
+build/
+dist/
