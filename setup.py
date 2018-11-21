@@ -26,5 +26,6 @@ if __name__ == '__main__':
                 "pre-commit==1.11.0",
                 "yapf==0.24.0",
                 "prospector==1.1.5",
+                "pylint",
             ]
         })

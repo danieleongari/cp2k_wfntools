@@ -9,7 +9,6 @@ from argparse import RawTextHelpFormatter  #needed to go next line in the help t
 from six.moves import range
 #from pprint import pprint  #for debug: prints all the attributs of an obj: pprint(vars(your_object))
 
-from atomic_data import atomic_symbols
 from utilities import mol
 from utilities import read_wfn_file
 from utilities import combine_wfn, split_wfn, make_clean_wfn
@@ -211,10 +210,8 @@ parser.add_argument(
     type=int,
     dest="maxfail",
     default=100,
-    help=
-    "When using makeAB, the program is stopped after maxfail \
-    overlapping configurations"
-)
+    help="When using makeAB, the program is stopped after maxfail \
+    overlapping configurations")
 
 parser.add_argument(
     "-srad",
@@ -222,10 +219,8 @@ parser.add_argument(
     type=float,
     dest="srad",
     default=1.0,
-    help=
-    "When using makeAB, scaling factor for the atomic radii, \
-    to evaluate the overlap"
-)
+    help="When using makeAB, scaling factor for the atomic radii, \
+    to evaluate the overlap")
 
 parser.add_argument(
     "-nout",
@@ -367,10 +362,8 @@ if args.function == "labelAB":
         sys.exit()
     if args.na is not None and args.nb is not None:
         if nab != (args.na + args.nb):
-            print(
-                "WARNING: number of atoms for A and B both specified, \
-                but they don't match with nAB! EXIT"
-            )
+            print("WARNING: number of atoms for A and B both specified, \
+                but they don't match with nAB! EXIT")
             sys.exit()
     if args.na is None:
         args.na = nab - args.nb
@@ -461,8 +454,7 @@ if args.function == "makeAB":
                 sys.exit()
 
 if args.function == "debug_kind":
-    """ DEBUG utility to parse a .kind file with a geometry
-    and print a new .kind file"""
+    # DEBUG utility to parse a .kind file with a geometry and print a new .kind file
     print("DEBUG: Reading %s geometry as A" % args.geoa)
     A = read_xyz_file(args.geoa)
     print("DEBUG: Reading %s kind file for A" % args.kindfile)
@@ -475,7 +467,7 @@ if args.function == "debug_kind":
                     args.pot)
 
 if args.function == "debug_split":
-    """ DEBUG utility to read ab.wfn and AB_label.xyz and print a.wfn + b.wfn"""
+    # DEBUG utility to read ab.wfn and AB_label.xyz and print a.wfn + b.wfn
     print("DEBUG: Reading %s geometry as AB" % args.geoab)
     A, B, na, nb = read_xyzlabel_file(args.geoab)
     print("DEBUG: Reading %s wavefunction as ab" % args.wfnab)
