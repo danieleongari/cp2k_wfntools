@@ -9,14 +9,14 @@ from argparse import RawTextHelpFormatter  #needed to go next line in the help t
 from six.moves import range
 #from pprint import pprint  #for debug: prints all the attributs of an obj: pprint(vars(your_object))
 
-from utilities import mol
-from utilities import read_wfn_file
-from utilities import combine_wfn, split_wfn, make_clean_wfn
-from utilities import write_fwfn_file, write_wfn_file
-from utilities import read_xyz_file, read_xyzlabel_file
-from utilities import read_cell_file, read_kind_file
-from utilities import write_xyz_file, write_kind_file
-from utilities import rotate_rand, translate_rand, has_overlap
+from cp2k_wfntools import mol
+from cp2k_wfntools import read_wfn_file
+from cp2k_wfntools import combine_wfn, split_wfn, make_clean_wfn
+from cp2k_wfntools import write_fwfn_file, write_wfn_file
+from cp2k_wfntools import read_xyz_file, read_xyzlabel_file
+from cp2k_wfntools import read_cell_file, read_kind_file
+from cp2k_wfntools import write_xyz_file, write_kind_file
+from cp2k_wfntools import rotate_rand, translate_rand, has_overlap
 
 parser = argparse.ArgumentParser(
     description="Program to parse and combine CP2K's .wfn wavefunction files",

@@ -16,7 +16,7 @@ if __name__ == '__main__':
         classifiers=["Programming Language :: Python"],
         version="0.1.0",
         install_requires=["numpy", "scipy"],
-        scripts=['wfntools.py'],
+        scripts=["cp2k_wfntools/wfntools"],
         extras_require={
             "testing": [
                 "mock==2.0.0", "pgtest==1.1.0", "sqlalchemy-diff==0.1.3",

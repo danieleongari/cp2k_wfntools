@@ -9,9 +9,8 @@ import numpy as np
 from numpy.linalg import inv  #to obtain the inverse of a cell
 import random
 import copy  #make duplicate of a class with copy.deepcopy(class)
-from atomic_data import atomic_symbols
-from atomic_data import atomic_valence_default_dict
-from atomic_data import atomic_rad_UFF_dict
+from cp2k_wfntools.atomic_data import atomic_valence_default_dict
+from cp2k_wfntools.atomic_data import atomic_rad_UFF_dict
 from collections import Counter  # to count the atom types
 #from pprint import pprint  #for debug: prints all the attributs of an obj: pprint(vars(your_object))
 from six.moves import range
@@ -114,15 +113,15 @@ class mol(object):
     def __init__(self, natom=None):
         # Initialize the molecule, known the number of atoms
         self.natom = natom  # number of atoms
-        self.atom_type = [None for _i in range(self.natom)] #e.g., Cu1
+        self.atom_type = [None for _i in range(self.natom)]  #e.g., Cu1
         self.atom_xyz = [[None for _j in range(3)]
                          for _i in range(self.natom)]  # cartesian coordinates
 
     def compute_types(self):
         # Count and list the atom types:
         #extract the element name if type = elementXX (with xx being a number)
-        self.atom_element = [extract_element(x)
-                            for x in self.atom_type] # atomic element: e.g., Cu
+        self.atom_element = [extract_element(x) for x in self.atom_type
+                             ]  # atomic element: e.g., Cu
         self.ntype = len(set(self.atom_type))  # number of different atom types
         self.type_symbol = list(set(self.atom_type))  # list of types
         self.type_element = {}
@@ -315,7 +314,7 @@ def combine_wfn(a, b):  # noqa: MC0001
             for iset in range(a.nset_max):
                 w.nshell[iatom][iset] = a.nshell[iatom][iset]
                 for ishell in range(a.nshell_max):
-                     w.nao[iatom][iset][ishell] = a.nao[iatom][iset][ishell]
+                    w.nao[iatom][iset][ishell] = a.nao[iatom][iset][ishell]
         else:
             w.nset[iatom] = b.nset[iatom - a.natom]
             for iset in range(b.nset_max):
@@ -324,8 +323,8 @@ def combine_wfn(a, b):  # noqa: MC0001
                     w.nao[iatom][iset][ishell] = b.nao[iatom -
                                                        a.natom][iset][ishell]
     # work with spin dependent properties
-    if a.nspin == 1 and w.nspin == 2: a = makeopenshell(a)
-    if b.nspin == 1 and w.nspin == 2: b = makeopenshell(b)
+    if a.nspin == 1 and w.nspin == 2: a.makeopenshell()
+    if b.nspin == 1 and w.nspin == 2: b.makeopenshell()
     for ispin in range(w.nspin):
         w.nmo[ispin] = a.nmo[ispin] + b.nmo[ispin]
         w.nocc[ispin] = a.nocc[ispin] + b.nocc[ispin]
@@ -414,9 +413,9 @@ def write_wfn_file(wfn_object, wfn_file):
     """ Print a wfn object as a binary fortran file """
     outfile = scipy.io.FortranFile(wfn_file, "w")
     w = wfn_object
-    outfile.write_record(np.array([w.natom, w.nspin, w.nao_tot,
-                                   w.nset_max, w.nshell_max],
-                                   dtype=np.int32))
+    outfile.write_record(
+        np.array([w.natom, w.nspin, w.nao_tot, w.nset_max, w.nshell_max],
+                 dtype=np.int32))
     outfile.write_record(np.array(w.nset, dtype=np.int32))
     outfile.write_record(np.array(w.nshell, dtype=np.int32))
     outfile.write_record(np.array(w.nao, dtype=np.int32))
@@ -532,8 +531,7 @@ def read_xyzlabel_file(xyz_file):
         elif atom_label == "_B":
             nb += 1
         else:
-            print(
-                "WARNING: AB.xyz does not contain labels. \
+            print("WARNING: AB.xyz does not contain labels. \
                 Use labelAB first! EXIT")
             sys.exit()
     if not nab == (na + nb):
@@ -662,10 +660,8 @@ def read_kind_file(kind_file, A, B):  # noqa: MC0001
                 if len(data) >= 2 and data[0] == "POTENTIAL":
                     pot = data[1]
                 if len(data) >= 1 and data[0] == "GHOST":
-                    print(
-                        "WARNING: reading .kind and not expecting \
-                        a GHOST here! EXIT"
-                    )
+                    print("WARNING: reading .kind and not expecting \
+                        a GHOST here! EXIT")
                     sys.exit()
             if kind_in_mol:
                 M.add_bspot(kind, bs, pot)
@@ -673,8 +669,7 @@ def read_kind_file(kind_file, A, B):  # noqa: MC0001
     for M in A, B:
         if M is not None:
             if len(M.bs) != M.ntype:
-                print(
-                    "WARNING: the basis set is read from a kind file, \
+                print("WARNING: the basis set is read from a kind file, \
                     but has a different number of types!")
     return
 
