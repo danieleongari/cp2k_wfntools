@@ -3,14 +3,14 @@
       BASIS_SET DZVP-MOLOPT-SR-GTH-q1
       GHOST
     &END
-    &KIND Cu_A
-      ELEMENT Cu
-      BASIS_SET DZVP-MOLOPT-SR-GTH-q11
-      GHOST
-    &END
     &KIND O_A
       ELEMENT O
       BASIS_SET DZVP-MOLOPT-SR-GTH-q6
+      GHOST
+    &END
+    &KIND Cu_A
+      ELEMENT Cu
+      BASIS_SET DZVP-MOLOPT-SR-GTH-q11
       GHOST
     &END
     &KIND H_B

@@ -14,9 +14,9 @@ atom 4:	[ 1 1 3 0 0 0 0 ]
 
 Information for spin 0:
 Number of molecular orbitals (MOs): 13
-Number of occupied MOs: 13
-Number of virtual MOs: 0
-Number of electrons: 18
+Number of occupied MOs: 4
+Number of virtual MOs: 9
+Number of electrons: 4
 Eigenvalue for each MO: [ 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.000 ]
 Electron occupancy for each MO: [ 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]
 Coefficients for the MO/AO matrix:
@@ -36,9 +36,9 @@ MO 12:	[ +0.000 +0.000 +0.000 +0.000 +0.000 +0.000 +0.000 +0.000 +0.000 +0.000 +
 
 Information for spin 1:
 Number of molecular orbitals (MOs): 12
-Number of occupied MOs: 12
-Number of virtual MOs: 0
-Number of electrons: 16
+Number of occupied MOs: 4
+Number of virtual MOs: 8
+Number of electrons: 4
 Eigenvalue for each MO: [ 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.000 ]
 Electron occupancy for each MO: [ 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]
 Coefficients for the MO/AO matrix:

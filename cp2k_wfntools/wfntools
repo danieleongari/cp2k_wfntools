@@ -343,12 +343,12 @@ if args.function == "cp":
         if args.printformatted:
             write_fwfn_file(a, args.outfilename + "_Aa.fwfn")
         # Print Bb
-        write_xyz_file(args.outfilename + "_Bb.xyz", A, X, label=True)
-        write_kind_file(args.outfilename + "_Bb.kind", A, X, False, False,
+        write_xyz_file(args.outfilename + "_Bb.xyz", B, X, label=True)
+        write_kind_file(args.outfilename + "_Bb.kind", B, X, False, False,
                         args.bs, args.pot)
         write_wfn_file(b, args.outfilename + "_Bb.wfn")
         if args.printformatted:
-            write_fwfn_file(a, args.outfilename + "_Bb.fwfn")
+            write_fwfn_file(b, args.outfilename + "_Bb.fwfn")
 
 if args.function == "labelAB":
     if args.geoab is None or not os.path.isfile(args.geoab):

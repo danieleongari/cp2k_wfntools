@@ -14,6 +14,7 @@ from cp2k_wfntools.atomic_data import atomic_rad_UFF_dict
 from collections import Counter  # to count the atom types
 #from pprint import pprint  #for debug: prints all the attributs of an obj: pprint(vars(your_object))
 from six.moves import range
+import re  #re.split('(\d+)',"Cu123_A") = ['Cu', '123', '_A']
 
 # pylint: disable=too-many-arguments,too-many-locals,too-many-branches
 
@@ -81,8 +82,8 @@ class wfn(object):
             self.coeff[1] = self.coeff[0]
             return
 
-    def add_nel(self, nel_geom, charge,
-                multiplicity):  #default: charge=0, mult=1
+    def add_nel(self, nel_geom, charge, multiplicity):
+        #default: charge=0, mult=1
         # Check that nel/mult/charge are consistent
         # If nspin=2 split into alpha and beta
         # If charge!=0, add/remove electrons
@@ -97,14 +98,30 @@ class wfn(object):
             if self.nel[0] % 2 == 1:
                 print("WARNING: nspin=1 but odd number of electrons! EXIT")
                 sys.exit()
+            self.nmo[0] = int(self.nel[0] / 2.0)  # 2 electr. per MO
+            self.nocc[0] = self.nmo[0]  # all the orbitals are occupied
+            self.nvirt[0] = 0  # no virtual orbitals
+            self.initialize_lists(0)
+            for i in range(self.nmo[0]):
+                self.eigen[0][i] = 0.0
+                self.occup[0][i] = 2.0
         elif self.nspin == 2:
             if (nel_geom - self.charge % 2 == 1) and (self.mult % 2 == 1):
                 print("WARNING: both number of electrons and multiplicity \
                        are odd! EXIT")
-            self.nel[0] = int((nel_geom - self.charge) / 2 +
-                              (self.mult - 1) / 2)
-            self.nel[1] = int((nel_geom - self.charge) / 2 -
-                              (self.mult - 1) / 2)
+            self.nel[0] = int((nel_geom - self.charge) / 2.0 +
+                              (self.mult - 1) / 2.0)
+            self.nel[1] = int((nel_geom - self.charge) / 2.0 -
+                              (self.mult - 1) / 2.0)
+            for ispin in range(self.nspin):
+                self.nmo[ispin] = self.nel[ispin]  # 1 electr. per MO
+                self.nocc[ispin] = self.nmo[
+                    ispin]  # all the orbitals are occup.
+                self.nvirt[ispin] = 0  # no virtual orbitals
+                self.initialize_lists(ispin)
+                for i in range(self.nmo[ispin]):
+                    self.eigen[ispin][i] = 0.0
+                    self.occup[ispin][i] = 1.0
 
 
 class mol(object):
@@ -119,14 +136,14 @@ class mol(object):
 
     def compute_types(self):
         # Count and list the atom types:
-        #extract the element name if type = elementXX (with xx being a number)
-        self.atom_element = [extract_element(x) for x in self.atom_type
-                             ]  # atomic element: e.g., Cu
+        self.atom_element = [re.split(r"(\d+)", x)[0] for x in self.atom_type]
         self.ntype = len(set(self.atom_type))  # number of different atom types
         self.type_symbol = list(set(self.atom_type))  # list of types
         self.type_element = {}
         for x in self.type_symbol:
-            self.type_element.update({x: extract_element(x)})  # type : element
+            self.type_element.update({
+                x: re.split(r"(\d+)", x)[0]
+            })  # type : elem
         self.type_count = Counter(self.atom_type)  # count of atom types
         self.bs = {}  # gaussian basis set
         self.pot = {}  # pseudopotential
@@ -136,8 +153,8 @@ class mol(object):
         # Count the number of electrons, according to the atom types
         self.nel = 0
         for element in self.atom_element:
-            self.nel += atomic_valence_default_dict[
-                element]  #TODO: user number of valence el
+            self.nel += atomic_valence_default_dict[element]
+            #TODO: user number of valence el
 
     def compute_fract(self, cell):
         # Given a cell, compute the fractional coordinates of the atoms
@@ -227,15 +244,6 @@ class cell(object):
         self.invmatrix = inv(self.matrix)
 
 
-def extract_element(element_type):
-    """ Clear numberical values at the end of a string,
-    for each string in a list """
-    for x in element_type[::-1]:  # Reverse string
-        if x.isnumeric():
-            element_type = element_type[:-1]
-    return element_type
-
-
 def advreadline(inpfile):
     """ Avanced readline: return the splitted line or the string 'EoF' """
     line = inpfile.readline()
@@ -288,13 +296,17 @@ def read_wfn_file(wfn_file):
 
 
 def make_clean_wfn(w):
-    """ Given a wfn, duplicate it and set to zero the coeffs """
-    x = copy.deepcopy(w)
-    for ispin in range(x.nspin):
-        for i in range(x.nmo[ispin]):
-            for j in range(x.nao_tot):
-                x.coeff[ispin][i][j] = 0.0
-    return x
+    """ Given a wfn, duplicate it and set to zero the coeffs. /
+    Also, set to zero nel and nocc, and set nvirt=nocc """
+    v = copy.deepcopy(w)
+    for ispin in range(v.nspin):
+        for i in range(v.nmo[ispin]):
+            for j in range(v.nao_tot):
+                v.coeff[ispin][i][j] = 0.0
+        v.nel[ispin] = 0
+        v.nvirt[ispin] = v.nocc[ispin]
+        v.nocc[ispin] = 0
+    return v
 
 
 def combine_wfn(a, b):  # noqa: MC0001
@@ -385,18 +397,6 @@ def split_wfn(ab, A, B, a_charge, b_charge, a_mult, b_mult):  # noqa: MC0001
     B.compute_nel_geom()
     a.add_nel(A.nel, a_charge, a_mult)
     b.add_nel(B.nel, b_charge, b_mult)
-    if ab.nspin == 1: el_per_orb = 2
-    elif ab.nspin == 2: el_per_orb = 1
-    for w in [a, b]:
-        for ispin in range(ab.nspin):
-            w.nmo[ispin] = int(w.nel[ispin] / el_per_orb)
-            w.nocc[ispin] = w.nmo[ispin]  #all the orbitals are occupied
-            w.nvirt[ispin] = 0  #no virtual orbitals
-            w.nel[ispin] = a.nel[ispin]
-            w.initialize_lists(ispin)
-            for i in range(w.nmo[ispin]):
-                w.eigen[ispin][i] = 0.0  #left to zero
-                w.occup[ispin][i] = float(el_per_orb)
     # Split the coefficients
     for ispin in range(ab.nspin):
         for i in range(a.nmo[ispin]):
