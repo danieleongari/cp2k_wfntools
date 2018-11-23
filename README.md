@@ -15,10 +15,12 @@ Consider:
 * Different atom types can be specified for the same element: use the convention "type = elementX" with X being a scalar. For example, in an antiferromagnetic calculation one can use Cu1 and Cu2 to specify atoms with opposite spin. It is possible to use any number (e.g., Cu10, Cu3333), but NOT letters or symbols (e.g., Cu_1, CuUP, CuSpin1, ..., are not read correctly)
 
 ### Installation
-
 ```
-pip install cp2k-wfntools
+git clone https://github.com/danieleongari/cp2k_wfntools.git
+cd cp2k_wfntools
+pip install .
 ```
+In the latter, append `--user` for a local installation.
 
 ### Examples:
 #### 1) Print the formatted wavefunction:
